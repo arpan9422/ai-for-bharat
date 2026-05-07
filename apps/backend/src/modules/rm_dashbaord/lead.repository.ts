@@ -104,7 +104,7 @@ export async function getCallAnalytics() {
     prisma.call.findMany({
       take: 10,
       orderBy: { startedAt: 'desc' },
-      include: { lead: { select: { name: true, phone: true, status: true } } },
+      include: { lead: { select: { id: true, name: true, phone: true, status: true } } },
     }),
   ]);
 

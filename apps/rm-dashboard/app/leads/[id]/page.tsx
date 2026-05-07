@@ -8,6 +8,7 @@ import StatusBadge from '@/components/StatusBadge';
 import ScoreBar from '@/components/ScoreBar';
 import TranscriptViewer from '@/components/TranscriptViewer';
 import ConversationPlayer from '@/components/ConversationPlayer';
+import ScoreTrendChart from '@/components/ScoreTrendChart';
 import {
   formatDate, formatDuration, languageLabel,
   occupationLabel, scoreColor,
@@ -44,7 +45,7 @@ function CallSummaryPanel({ summary }: { summary: SummaryShape }) {
   const handoffReason = summary.handoffReason ?? summary.handoff_reason ?? summary.endReason ?? summary.end_reason ?? '';
 
   return (
-    <div className="space-y-4 mb-5 pb-5 border-b border-slate-100">
+    <div className="space-y-4">
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
@@ -121,6 +122,30 @@ function CallSummaryPanel({ summary }: { summary: SummaryShape }) {
   );
 }
 
+function DetailSection({ title, description, defaultOpen = false, children }: {
+  title: string;
+  description?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group rounded-xl border border-slate-100 bg-white shadow-sm" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3">
+        <div>
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+          {description && <p className="mt-0.5 text-xs text-slate-400">{description}</p>}
+        </div>
+        <svg className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+        </svg>
+      </summary>
+      <div className="border-t border-slate-100 px-4 py-4">
+        {children}
+      </div>
+    </details>
+  );
+}
+
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -192,6 +217,10 @@ export default function LeadDetailPage() {
   }
 
   const summary = callDetail?.summary as SummaryShape | null;
+  const transcriptMessages = (callDetail?.transcript as Array<{
+    role: string; content: string; timestamp: number;
+    language?: string; intent?: string; emotion?: string; score?: number;
+  }>) || [];
 
   return (
     <div className="space-y-5 max-w-7xl">
@@ -320,48 +349,54 @@ export default function LeadDetailPage() {
           </div>
 
           {/* Call detail + transcript */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+          <div className="lg:col-span-2">
             {callLoading ? (
-              <div className="space-y-3">
+              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm space-y-3">
                 {[1,2,3,4,5].map(i => <div key={i} className="h-12 bg-slate-100 rounded-xl animate-pulse" />)}
               </div>
             ) : callDetail ? (
-              <>
-                {summary && <CallSummaryPanel summary={summary} />}
+              <div className="space-y-3">
+                {summary && (
+                  <DetailSection title="Call Summary" description="Score, objections, intent, handoff, and follow-up notes" defaultOpen>
+                    <CallSummaryPanel summary={summary} />
+                  </DetailSection>
+                )}
+
+                <DetailSection title="Score Movement" description="Line graph of score changes during the conversation">
+                  <ScoreTrendChart messages={transcriptMessages} />
+                </DetailSection>
 
                 {/* Full call recording from ordered audio chunks */}
-                <div className="mb-5">
-                  {selectedCall ? (
-                    <ConversationPlayer callId={selectedCall} />
-                  ) : callDetail?.recording_url ? (
-                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-base">🎙</span>
-                        <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Call Recording</p>
+                <DetailSection title="Recording" description="Full conversation audio chunks in sequence">
+                  <div>
+                    {selectedCall ? (
+                      <ConversationPlayer callId={selectedCall} />
+                    ) : callDetail?.recording_url ? (
+                      <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-base">🎙</span>
+                          <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Call Recording</p>
+                        </div>
+                        <p className="text-xs text-indigo-500 mb-3">Full recording for this call</p>
+                        <audio controls className="w-full" src={callDetail.recording_url}>
+                          Your browser does not support audio playback.
+                        </audio>
                       </div>
-                      <p className="text-xs text-indigo-500 mb-3">Full recording for this call</p>
-                      <audio controls className="w-full" src={callDetail.recording_url}>
-                        Your browser does not support audio playback.
-                      </audio>
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-center">
-                      <p className="text-sm text-gray-400">No recording available</p>
-                      <p className="text-xs text-gray-300 mt-1">Recording is generated after the call ends</p>
-                    </div>
-                  )}
-                </div>
+                    ) : (
+                      <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-center">
+                        <p className="text-sm text-gray-400">No recording available</p>
+                        <p className="text-xs text-gray-300 mt-1">Recording is generated after the call ends</p>
+                      </div>
+                    )}
+                  </div>
+                </DetailSection>
 
-                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Transcript</h3>
-                <TranscriptViewer
-                  messages={(callDetail.transcript as Array<{
-                    role: string; content: string; timestamp: number;
-                    language?: string; intent?: string; emotion?: string; score?: number;
-                  }>) || []}
-                />
-              </>
+                <DetailSection title="Transcript" description={`${transcriptMessages.length} messages with language, score, and intent tags`}>
+                  <TranscriptViewer messages={transcriptMessages} />
+                </DetailSection>
+              </div>
             ) : (
-              <div className="text-center py-12 text-slate-400">
+              <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm text-center py-12 text-slate-400">
                 <div className="text-3xl mb-2">📋</div>
                 <p className="text-sm font-medium">Select a call to view transcript</p>
               </div>

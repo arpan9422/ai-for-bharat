@@ -67,7 +67,7 @@ export interface RecentCall {
   language?: string;
   startedAt: string;
   endedAt?: string;
-  lead: { name?: string; phone: string; status: LeadStatus };
+  lead: { id: string; name?: string; phone: string; status: LeadStatus };
 }
 
 export interface LeadsResponse {

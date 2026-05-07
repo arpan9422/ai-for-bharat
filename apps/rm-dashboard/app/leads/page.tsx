@@ -1,7 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { fetchLeads } from '@/lib/api';
 import { Lead, LeadStatus } from '@/lib/types';
 import LeadsTable from '@/components/LeadsTable';
@@ -27,33 +26,24 @@ function LeadsContent() {
   const [error, setError] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
-  const [queueLeads, setQueueLeads] = useState<Lead[]>([]);
-  const [queueTotal, setQueueTotal] = useState(0);
-  const [queueLoading, setQueueLoading] = useState(true);
 
   const LIMIT = 20;
 
   const load = useCallback(async (p = 1) => {
     setLoading(true); setError('');
     try {
-      setQueueLoading(true);
-      const [res, queue] = await Promise.all([
-        fetchLeads({
-          status: statusParam as LeadStatus | undefined || undefined,
-          page: p, limit: LIMIT,
-        }),
-        fetchLeads({ callStatus: 'uncalled', page: 1, limit: 8 }),
-      ]);
+      const res = await fetchLeads({
+        status: statusParam as LeadStatus | undefined || undefined,
+        callStatus: 'called',
+        page: p, limit: LIMIT,
+      });
       setLeads(res.items);
       setTotal(res.total);
       setPage(p);
-      setQueueLeads(queue.items);
-      setQueueTotal(queue.total);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load leads');
     } finally {
       setLoading(false);
-      setQueueLoading(false);
     }
   }, [statusParam]);
 
@@ -80,7 +70,7 @@ function LeadsContent() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">Leads</h1>
             <p className="text-sm text-gray-500 mt-0.5">
-              {loading ? 'Loading…' : `${total} leads · Page ${page} of ${totalPages || 1}`}
+              {loading ? 'Loading...' : `${total} called leads · Page ${page} of ${totalPages || 1}`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -106,48 +96,6 @@ function LeadsContent() {
             {error}
           </div>
         )}
-
-        {/* Not yet called queue */}
-        <div className="bg-white rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-indigo-50 bg-indigo-50/40">
-            <div>
-              <h2 className="text-sm font-bold text-gray-900">Call Queue</h2>
-              <p className="text-xs text-gray-500 mt-0.5">New leads with no call history. Use these IDs in the test pipeline.</p>
-            </div>
-            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-bold text-indigo-700">
-              {queueLoading ? '...' : `${queueTotal} pending`}
-            </span>
-          </div>
-
-          <div className="divide-y divide-gray-50">
-            {queueLoading ? (
-              <div className="p-4 space-y-2">
-                {[1, 2, 3].map(i => <div key={i} className="h-12 rounded-lg bg-gray-100 animate-pulse" />)}
-              </div>
-            ) : queueLeads.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-gray-400">No uncalled leads in queue</div>
-            ) : (
-              queueLeads.map(lead => (
-                <div key={lead.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-black text-indigo-700">
-                    {(lead.name || lead.phone).charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-gray-900">{lead.name || 'Unnamed lead'}</p>
-                      <span className="text-xs text-gray-300">·</span>
-                      <p className="text-xs text-gray-500">{lead.phone}</p>
-                    </div>
-                    <code className="mt-1 inline-block rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{lead.id}</code>
-                  </div>
-                  <Link href={`/leads/${lead.id}`} className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
-                    Open
-                  </Link>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
 
         {/* Filter chips */}
         <div className="flex items-center gap-2 flex-wrap">

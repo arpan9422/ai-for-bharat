@@ -30,6 +30,9 @@ export default function TranscriptViewer({ messages }: { messages: Message[] }) 
                 <span>{new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</span>
                 {msg.language && <span className="text-gray-300">·</span>}
                 {msg.language && <span>{languageLabel(msg.language)}</span>}
+                {typeof msg.score === 'number' && (
+                  <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded font-semibold">Score {msg.score}</span>
+                )}
                 {msg.intent && !isAgent && <span className="bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{intentLabel(msg.intent)}</span>}
                 {msg.emotion && !isAgent && <span>{emotionEmoji(msg.emotion)}</span>}
               </div>

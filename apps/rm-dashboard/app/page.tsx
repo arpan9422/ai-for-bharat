@@ -38,16 +38,22 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
+  const [queueLeads, setQueueLeads] = useState<Lead[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [queueSearch, setQueueSearch] = useState('');
 
   const load = useCallback(async () => {
     try {
       setError('');
-      const [a, h] = await Promise.all([
+      const [a, h, q] = await Promise.all([
         fetchAnalytics(),
         fetchLeads({ status: 'HOT', limit: 8 }),
+        fetchLeads({ callStatus: 'uncalled', limit: 500 }),
       ]);
       setAnalytics(a);
       setHotLeads(h.items);
+      setQueueLeads(q.items);
+      setQueueTotal(q.total);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load dashboard');
     } finally {
@@ -61,6 +67,11 @@ export default function DashboardPage() {
 
   const total = analytics ? analytics.leadCounts.HOT + analytics.leadCounts.WARM + analytics.leadCounts.COLD : 0;
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const filteredQueueLeads = queueLeads.filter(lead => {
+    const q = queueSearch.trim().toLowerCase();
+    if (!q) return true;
+    return `${lead.id} ${lead.name || ''} ${lead.phone} ${lead.occupation || ''}`.toLowerCase().includes(q);
+  });
 
   return (
     <>
@@ -117,6 +128,63 @@ export default function DashboardPage() {
             sub={`Avg: ${formatDuration(analytics?.calls.avgDuration?.duration ?? undefined)}`} />
         </div>
 
+        {/* Not yet called queue */}
+        <div className="bg-white rounded-xl border border-indigo-100 shadow-sm overflow-hidden">
+          <div className="flex flex-col gap-3 px-5 py-4 border-b border-indigo-50 bg-indigo-50/40 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-gray-900">Call Queue</h2>
+                <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-700">
+                  {loading ? '...' : `${queueTotal} pending`}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">Leads with no call history. Search by name, phone, or lead ID.</p>
+            </div>
+            <div className="relative w-full sm:w-80">
+              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z" />
+              </svg>
+              <input
+                value={queueSearch}
+                onChange={event => setQueueSearch(event.target.value)}
+                placeholder="Search queue"
+                className="w-full rounded-lg border border-indigo-100 bg-white py-2 pl-9 pr-3 text-sm text-gray-700 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="p-4 space-y-2">
+              {[1, 2, 3, 4].map(i => <div key={i} className="h-12 rounded-lg bg-gray-100 animate-pulse" />)}
+            </div>
+          ) : filteredQueueLeads.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-gray-400">
+              {queueSearch ? 'No queued leads match this search' : 'No uncalled leads in queue'}
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
+              {filteredQueueLeads.map(lead => (
+                <div key={lead.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/70">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-xs font-black text-indigo-700">
+                    {(lead.name || lead.phone).charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-gray-900">{lead.name || 'Unnamed lead'}</p>
+                      <span className="text-xs text-gray-300">·</span>
+                      <p className="text-xs text-gray-500">{lead.phone}</p>
+                    </div>
+                    <code className="mt-1 inline-block rounded-md bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">{lead.id}</code>
+                  </div>
+                  <Link href={`/leads/${lead.id}`} className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100">
+                    Open
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Middle row */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {/* Funnel */}
@@ -167,12 +235,13 @@ export default function DashboardPage() {
                       <div className="text-xs text-gray-400 mt-0.5">
                         {languageLabel(call.language)} · {formatDuration(call.duration)} · {formatShortDate(call.startedAt)}
                       </div>
+                      <code className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500">{call.lead.id}</code>
                     </div>
                     <div className="text-right shrink-0 mr-3">
                       <span className={`text-base font-bold ${scoreColor(call.score)}`}>{call.score}</span>
                       <p className="text-xs text-gray-400">score</p>
                     </div>
-                    <Link href="/leads"
+                    <Link href={`/leads/${call.lead.id}`}
                       className="inline-flex items-center gap-1 text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0">
                       View
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
