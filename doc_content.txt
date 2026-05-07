@@ -1,0 +1,205 @@
+﻿AI Voice Agent for Partner Lead Conversion
+Rupeezy ΓÇö Hackathon Solution Document
+Theme 7 | Round 1 Submission
+1. Problem Understanding & Structural Failures
+Rupeezy operates one of the most attractive partner programs in the Indian brokerage industry. The Authorized Person (AP) program offers zero joining fees, 100% brokerage revenue sharing  more than double the 60ΓÇô70% industry standard  and daily payouts through the RISE Portal. Despite these compelling advantages, the program converts only 18% of incoming leads. That number is not a reflection of a weak product. It is a symptom of a fundamentally broken process.
+The current model relies entirely on human Relationship Managers (RMs) to reach out to incoming partner leads, qualify them, pitch the program, handle objections, and close sign-ups. In theory, this is a reasonable approach. In practice, it breaks down in three predictable and compounding ways.
+1.1 The Timing Problem
+The most damaging failure in the current funnel is not human error  it is structural delay. When a lead arrives outside business hours, or during a weekend campaign, there is no mechanism to reach them. The lead simply sits in a queue. Industry research consistently shows that a prospect contacted within five minutes of expressing interest converts at nine times the rate of one contacted thirty minutes later. By Monday morning, the 50 leads from a weekend campaign are already cold.
+1.2 The Language Problem
+India has over 20 major languages. A financial pitch delivered in English to a Hindi-speaking MFD in Rajasthan, or a Gujarati-speaking insurance agent in Surat, is not just less effective  it is actively off-putting. The prospect disengages within the first 15 seconds. RMs typically speak one or two languages, limiting Rupeezy's addressable partner market to a fraction of its potential. Every language-mismatched call is effectively a lost lead.
+1.3 The Capacity Problem
+An RM handles one call at a time. A marketing campaign that generates 300 leads overnight creates a queue that backs up for days. By the time lead number 200 is called, they have forgotten they expressed interest  or they have already signed up with a competitor. There is no mechanism to surge capacity when lead volume spikes. The bottleneck is structural, not motivational.
+2. Proposed Solution Overview
+Our solution is an AI-powered voice agent that acts as the first line of engagement for every incoming partner lead  immediately, in their language, at any hour. The agent is not a replacement for the RM; it is a force multiplier. It handles the high-volume, time-sensitive, and language-diverse initial outreach that the RM team structurally cannot perform at scale, and it hands off only the qualified, warm, context-rich conversations to human RMs.
+The agent runs a structured but adaptive sales conversation: it opens with a hook tailored to the lead's profile, pitches the key benefits of the Rupeezy AP program, handles objections naturally, qualifies interest, and routes each lead to the right next action  RM queue, WhatsApp follow-up, or long-term nurture.
+2.1 How It Solves Each Structural Failure
+2.2 High-Level System Flow
+The diagram above shows how a lead flows through the system: from first contact through the AI agent, language detection, the conversation and objection handling engine, lead scoring, and finally to the appropriate output  RM handoff, WhatsApp follow-up, or CRM logging  with a post-call summary generated for every conversation.
+3. Multilingual Conversation Handling
+Language is arguably the highest-leverage variable in this system. A prospect who hears the pitch in their native language is more likely to trust the agent, engage longer, and ultimately convert. Getting this right requires more than translation it requires natural, contextual, code-mixed language behaviour that mirrors how real people in India actually speak.
+3.1 Language Detection Strategy
+The agent detects language at two levels. On first contact, the greeting is delivered in a neutral Hinglish opener something like 'Namaste! Main Rupeezy ki taraf se baat kar raha hoon, ek important opportunity ke baare mein' which is understood across most of the target audience and naturally prompts the lead to respond in their preferred language. That first response is the primary detection signal.
+The LLM classifies the response language using script detection (Devanagari vs. Latin), vocabulary analysis, and syntactic patterns. If the response is ambiguous for example, pure numbers or very short answers the agent asks a light open-ended question to generate more signal. Detection happens within the first two exchanges.
+3.2 Mid-Conversation Language Switching
+Language switching is a normal, natural behaviour in Indian conversations. A lead may start in English and shift to Hindi when they get emotional or confrontational. The agent monitors every turn for language signals and switches smoothly without announcing the switch within one response. If a lead says 'Bhai, mujhe samajh nahi aaya' mid-conversation, the agent does not continue in English. It adapts immediately.
+The language detection flow above illustrates how the system moves from initial input to detected language and response mode, with a mid-call switch path that activates whenever the agent detects a language change of two or more consecutive turns.
+3.3 Hinglish and Code-Mixing
+Hinglish is not a dialect it is the dominant communication style of urban and semi-urban India. The agent is trained with a specific Hinglish persona: short sentences, common loan words ('opportunity', 'joining fee', 'payout'), and occasional rhetorical questions in mixed language. Example: 'Aap pehle se kisi broker ke saath hain toh kya aapko 100% brokerage share aur daily payout milta hai?' This feels like a real conversation, not a translated script.
+4. Objection Handling Strategy
+Objections are not obstacles they are signals of engagement. A lead who raises an objection is a lead who is thinking about the offer. The agent's job is not to deflect or override; it is to listen, acknowledge, and reframe naturally, using the context of what the lead has already said.
+Appendix A provides the base rebuttals for each of the five core objections. The agent ingests these as a knowledge base, not as a script. This distinction matters: the agent does not look up the objection and recite the rebuttal. It uses the rebuttal logic as a reasoning anchor and generates a response that fits the specific conversation at that moment.
+The objection map above shows how each of the five core objections is handled, with the rebuttal logic derived from the knowledge base but expressed contextually. No two objection responses are identical across conversations.
+4.1 The Five Core Objections
+Objection 1: 'I'm already with another broker'
+Objection 2: 'I don't have enough contacts'
+Objection 3: 'What if my clients face issues?'
+Objection 4: 'Is Rupeezy trustworthy?'
+Objection 5: 'I'll think about it / call me later'
+4.2 Knowledge Base vs. Script Reader
+The agent accesses Appendix A through a retrieval layer, not a lookup table. When an objection is raised, the relevant section is injected into the LLM context as background knowledge. The LLM then generates a response that honours the rebuttal logic while incorporating what was said earlier in the conversation  the lead's name, their current broker, their stated concerns. The result sounds like a human who listened, not a chatbot who matched a keyword.
+5. Lead Qualification Model
+The lead scoring system is the core intelligence layer of this solution. It transforms a raw conversation into an actionable signal Hot, Warm, or Cold that drives every downstream decision. The model runs in real time during the conversation, updating the score after each turn, and produces a final classification when the call ends.
+5.1 Scoring Signals
+The model uses four primary signal categories, each contributing a weighted score component:
+5.2 Hot / Warm / Cold Thresholds
+5.3 Lead Scoring Pipeline
+The scoring pipeline above shows how signals are collected during the conversation, fed into the scoring engine, and mapped to classification thresholds that trigger the appropriate downstream action.
+5.4 Multi-Turn Memory
+The system maintains a persistent memory store keyed by phone number and lead ID. If the same lead is contacted again either by the AI agent or by an RM the previous conversation history, score, and objections raised are loaded into context. The agent never starts from zero with a returning lead. It acknowledges the prior conversation: 'Namaste! Hum pehle baat kar chuke hain Rupeezy ke baare mein aapne kuch time maanga tha. Ab kaisa lag raha hai?'
+6. Handoff Design to Human RM
+The handoff is where the AI agent's value crystallizes into business outcomes. A Hot lead handed to an RM is only valuable if the RM can pick up the conversation intelligently without asking the lead to repeat themselves, without re-pitching benefits already discussed, and without losing the momentum the agent built.
+6.1 Hot Lead RM Handoff
+When a lead scores 75 or above, the system adds them to the RM's priority queue immediately. The RM dashboard displays a card for each Hot lead with the following information: lead name, phone number, call duration, language used, a plain-language summary of the conversation, all objections raised and how they were resolved, the lead's stated intent, and a recommended first sentence for the RM's opening call.
+6.2 Warm Lead WhatsApp Fallback
+For leads scoring between 45 and 74, the agent closes the call gracefully and immediately triggers an automated WhatsApp message. The message includes a personalised first line (mentioning the conversation), a brief bullet summary of the AP program benefits, and a direct sign-up link. If the lead clicks but does not complete sign-up within 48 hours, a follow-up WhatsApp is sent.
+6.3 Handoff Flow Diagram
+The handoff flow above shows the decision path from call end through summary generation, score-based routing, and the specific actions taken for Hot, Warm, and Cold leads. The RM dashboard view is shown at the bottom.
+7. System Architecture
+The system is built in layers, with each layer independently deployable and scalable. For the hackathon demo, the full stack can run locally with no telephony infrastructure. The architecture is designed so that each component voice interface, STT, LLM, scoring, analytics can be upgraded or replaced without rebuilding the whole system.
+The architecture above shows all seven system layers, from the user-facing interface down to the data and analytics layer. The technology stack is listed on the right panel of the diagram.
+7.1 Layer-by-Layer Description
+Layer 1: Voice / Text Interface
+For the hackathon, the interface is a browser-based voice widget using the Web Speech API for real-time transcription and playback. This demonstrates the full conversational loop without requiring Twilio or a phone number. The interface design includes a call status indicator, transcript view, and live lead score tracker visible to the demo evaluator.
+Layer 2: Speech-to-Text (STT)
+Deepgram is our primary STT provider for its low latency, strong Hindi support, and streaming API. Whisper (via OpenAI API) is the fallback for regional language audio where Deepgram confidence drops below threshold. For TTS, ElevenLabs provides natural-sounding Hindi and English voices; AWS Polly is the cost-efficient fallback for scale.
+Layer 3: LLM Conversation Engine
+The conversation engine uses GPT-4o as the primary LLM. Each turn, the agent receives: the full conversation history, the active persona and language instruction, the relevant Appendix A knowledge injected for the current conversation stage, the lead's current score, and a turn instruction (e.g., 'objection raised handle naturally'). The LLM generates the next agent turn. Claude Sonnet 4 is the fallback.
+Layer 4: Knowledge Base
+Appendix A is chunked and stored in a vector database (Pinecone or pgvector). At each conversation turn, the most relevant chunks are retrieved using semantic search and injected into the LLM prompt. This ensures the agent always has the right rebuttal or product fact available without hallucinating details.
+Layer 5: Scoring Engine
+The scoring engine runs as a lightweight Python service. It processes each conversation turn, extracts signals (via a secondary LLM call or rule-based NLP), updates the running score, and writes the score history to the database. The final classification is computed at call end.
+Layer 6: Analytics Dashboard
+8. Technology Choices & Justification
+9. Risks & Trade-offs
+Every system of this type carries risks. We have identified the five most significant and designed specific mitigations into the architecture.
+10. Implementation Plan ΓÇö Round 2
+Assuming Appendix A and sample lead data are provided at the start of Round 2, the implementation proceeds across five phases. Each phase builds on the previous and is independently demonstrable.
+Phase 1: Core Conversation System (Day 1ΓÇô2)
+Set up FastAPI backend with WebSocket support for real-time conversation
+Integrate Deepgram STT and ElevenLabs TTS
+Build basic LLM conversation loop with persona and language switching
+Create browser voice interface widget
+Phase 2: Objection Handling (Day 2ΓÇô3)
+Ingest Appendix A into pgvector knowledge base
+Build RAG retrieval layer inject relevant chunks per conversation turn
+Implement all 5 objection detection and rebuttal patterns
+Add conversation context tracking across turns
+Phase 3: Scoring & Classification (Day 3ΓÇô4)
+Build scoring engine service signal extraction and weighted scoring
+Implement Hot / Warm / Cold classification logic
+Add real-time score updates visible during demo
+Implement multi-turn memory store (Redis for session, PostgreSQL for persistence)
+Phase 4: Dashboard & Handoff (Day 4ΓÇô5)
+Build React dashboard funnel view, lead cards, transcripts
+Implement RM queue with full conversation context cards
+Integrate WhatsApp Business API for Warm lead auto-messages
+Post-call summary generation and storage
+Phase 5: Testing & Polish (Day 5ΓÇô6)
+End-to-end testing with sample lead data across all three language modes
+Edge case handling: dropped calls, one-word responses, very long conversations
+Performance optimisation target < 800ms agent response latency
+Prepare demo script and evaluator walkthrough
+11. Conclusion
+The current 18% conversion rate is not a product problem. Rupeezy's AP program is genuinely one of the most attractive in the Indian brokerage market. The problem is structural: leads go cold before they are reached, language mismatches kill engagement within seconds, and RM capacity cannot match lead volume during campaign spikes.
+The AI voice agent we have designed directly attacks all three structural failures. It contacts every lead within minutes. It speaks in their language. It runs parallel conversations without queuing. And it hands off only the qualified, context-rich conversations to human RMs making every RM hour dramatically more productive.
+The scoring model ensures the right leads reach the right next step. The WhatsApp fallback keeps Warm leads warm. The post-call summaries create an institutional memory of every conversation. The dashboard gives RM leadership visibility into the full conversion funnel for the first time.
+This is not an incremental improvement to the existing process. It is a structural redesign of how Rupeezy engages with its partner lead pipeline one that makes the delay, language mismatch, and capacity problems disappear by design.
+End of Submission Document ΓÇö Theme 7 | AI Voice Agent for Partner Lead Conversion
+TABLE_CELL: Instant Response
+TABLE_CELL: Multilingual AI
+TABLE_CELL: Smart Scoring
+TABLE_CELL: RM Handoff
+TABLE_CELL: ≡ƒÆí Key Insight
+Industry data: A lead contacted within 5 minutes converts at 9├ù the rate vs. one contacted 30 minutes later. Most Rupeezy leads are contacted hours  sometimes days  after they express interest.
+TABLE_CELL: ΓÜá∩╕Å Root Cause Summary
+These three failures  timing, language, and capacity  are not edge cases. They are the default operating mode. Together, they explain why 82% of leads who were genuinely interested in a strong product still do not convert.
+TABLE_CELL: Problem
+TABLE_CELL: How the Agent Solves It
+TABLE_CELL: Timing Gap
+TABLE_CELL: Agent contacts every lead within minutes of arrival no after-hours queue, no weekend backlog
+TABLE_CELL: Language Mismatch
+TABLE_CELL: Agent detects and speaks in Hindi, English, Hinglish, or regional language automatically
+TABLE_CELL: Capacity Bottleneck
+TABLE_CELL: Agent runs hundreds of parallel conversations simultaneously with no queue overhead
+TABLE_CELL: Context Loss
+TABLE_CELL: Full conversation summary delivered to RM  no re-explaining history to the lead
+TABLE_CELL: Language Mode
+TABLE_CELL: Sample Agent Phrasing
+TABLE_CELL: Hindi
+TABLE_CELL: 'Aapko koi joining fee nahi dena hoga. 100% brokerage share milta hai, aur daily payout hota hai.'
+TABLE_CELL: English
+TABLE_CELL: 'There is no joining fee at all. You keep 100% of brokerage earned, and payouts are made daily.'
+TABLE_CELL: Hinglish
+TABLE_CELL: 'Joining fee bilkul nahi hai. Brokerage 100% aapka daily payout ke saath. Industry mein aise program rare hai.'
+TABLE_CELL: Tamil (bonus)
+TABLE_CELL: 'Serthu kolgai kattanam illai. 100% brokerege share, daily payout. Yosiyungal.'
+TABLE_CELL: ≡ƒÆ¼ Example Exchange
+Lead: 'Main pehle se ek broker ke saath hoon.'Agent: 'Bilkul samajh aata hai aap already business samajhte hain. Sirf ek cheez poochhna tha: wahan aapko kitna brokerage share milta hai? Zyaadatar brokers 60ΓÇô70% dete hain, monthly. Rupeezy mein 100% milta hai, daily. Woh bhi bina k
+TABLE_CELL: ≡ƒÆ¼ Example Exchange
+Lead: 'Mere paas utne contacts nahi hain.'Agent: 'Aap surprised honge  shuru karne ke liye zyaada nahi chahiye. Bahut saare partners sirf 5-10 clients ke saath start karte hain. Rupeezy ka RISE Portal aapko apne network ko grow karne mein help karta hai, aur kyunki joining fee nah
+TABLE_CELL: ≡ƒÆ¼ Example Exchange
+Lead: 'Agar mere clients ko koi problem hogi toh?'Agent: 'Yeh ek acha sawal hai  aap apne clients ki care karte hain, yeh achi baat hai. Rupeezy mein dedicated support team hai, RISE Portal pe real-time tracking hai, aur aapko personally ek RM assign hota hai. Aap kabhi akele nahi
+TABLE_CELL: ≡ƒÆ¼ Example Exchange
+Lead: 'Rupeezy kya hai? Trusted hai?'Agent: 'Bilkul valid question hai. Rupeezy SEBI registered broker hai, aur last few years mein rapidly grow kiya hai. Aap unka track record dekh sakte hain  partner count, payout consistency, aur RISE Portal ka interface. Main aapko ek quick li
+TABLE_CELL: ≡ƒÆ¼ Example Exchange
+Lead: 'Soochna padega. Baad mein call karo.'Agent: 'Zaroor  bilkul sahi. Aap ek kaam karo: main aapko WhatsApp pe ek short summary bhejta hoon  program ke benefits, joining process, aur ek direct sign-up link. Jab aapka time ho, dekh lena. Koi pressure nahi. Kya main yeh bhej sakt
+TABLE_CELL: Signal Category
+TABLE_CELL: What Is Measured
+TABLE_CELL: Max Points
+TABLE_CELL: Verbal Engagement
+TABLE_CELL: Enthusiasm, follow-up questions, positive affirmations
+TABLE_CELL: 30 pts
+TABLE_CELL: Engagement Duration
+TABLE_CELL: Call length relative to median; whether lead stayed through pitch
+TABLE_CELL: 20 pts
+TABLE_CELL: Objection Pattern
+TABLE_CELL: Fewer / softer objections = higher score; objections fully resolved = bonus
+TABLE_CELL: 25 pts
+TABLE_CELL: Stated Intent
+TABLE_CELL: Explicit sign-up interest, asks for link, asks how to start
+TABLE_CELL: 25 pts
+TABLE_CELL: ≡ƒöÑ HOT (ΓëÑ75)
+TABLE_CELL: ≡ƒîñ WARM (45ΓÇô74)
+TABLE_CELL: High interest, ready to sign up, few or resolved objections, asks next steps
+TABLE_CELL: Interested but uncertain, raised objections, needs more time or follow-up
+TABLE_CELL: Low engagement, declined pitch, or call ended early  log for nurture campaign
+TABLE_CELL: Action: Immediate RM queue with full context
+TABLE_CELL: Action: Auto-send WhatsApp sign-up link
+TABLE_CELL: Action: CRM tag + re-engage in 7 days
+TABLE_CELL: ≡ƒôï Sample RM Dashboard Card
+Sample RM Card  Hot Lead:Name: Rahul Sharma | Phone: 98XXXXXXXX | Score: 82/100 | Language: HindiSummary: Lead is an existing MFD with another broker. Interested in 100% brokerage share. Raised trust objection resolved by citing SEBI registration. Asked about onboarding ti
+TABLE_CELL: Technology Choice
+TABLE_CELL: Justification
+TABLE_CELL: GPT-4o (primary LLM)
+TABLE_CELL: Best multilingual reasoning, strong Hindi/Hinglish output quality, function calling for structured outputs
+TABLE_CELL: Claude Sonnet 4 (fallback)
+TABLE_CELL: Excellent context handling for long conversations, cost-efficient for high-volume calls
+TABLE_CELL: Deepgram STT
+TABLE_CELL: Lowest latency streaming STT with Hindi support; returns word-level timestamps for scoring
+TABLE_CELL: ElevenLabs TTS
+TABLE_CELL: Most natural-sounding voice synthesis in Hindi and English; supports custom voice cloning
+TABLE_CELL: FastAPI (Python)
+TABLE_CELL: Async support for parallel conversations, easy WebSocket integration, strong ML library ecosystem
+TABLE_CELL: React + Tailwind
+TABLE_CELL: Fast development, composable components, clean dashboard UI with minimal custom CSS
+TABLE_CELL: PostgreSQL + pgvector
+TABLE_CELL: Single database for conversation history, scores, and knowledge base embeddings
+TABLE_CELL: WhatsApp Business API
+TABLE_CELL: Official API for automated warm lead messages, high deliverability in India
+TABLE_CELL: Risk
+TABLE_CELL: Mitigation Strategy
+TABLE_CELL: False positives in lead scoring
+TABLE_CELL: Score calibration via historical data once real calls are collected; human RM review flag for borderline cases (score 70ΓÇô80)
+TABLE_CELL: Language detection errors
+TABLE_CELL: Fallback to Hinglish if detection confidence is low; leads can say 'English mein bolein' to override
+TABLE_CELL: Robotic conversation quality
+TABLE_CELL: Persona tuning, latency control (sub-1s response target), natural filler words, and avoidance of overly formal phrasing
+TABLE_CELL: LLM hallucination on product facts
+TABLE_CELL: All product facts grounded via RAG from Appendix A; LLM cannot generate product claims not in knowledge base
+TABLE_CELL: Data privacy / SEBI compliance
+TABLE_CELL: No PII stored beyond what is necessary; all data encrypted at rest; audit log for every conversation
+TABLE_CELL: Scalability under campaign spikes
+TABLE_CELL: Stateless agent design allows horizontal scaling; each conversation is an independent async worker
+TABLE_CELL: ≡ƒôê Expected Outcomes
+

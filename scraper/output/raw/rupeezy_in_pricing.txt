@@ -1,0 +1,103 @@
+Equity Delivery	Equity Intraday
+
+Brokerage
+	0.1% buy & sell	₹20 or 0.1% (lower)
+
+Other Charges
+		
+
+STT/CTT
+	0.1% buy & sell	0.025% sell side
+
+Transaction charges
+	NSE: ₹306.99 / Cr | BSE: ₹375 / Cr	NSE: ₹306.99 / Cr | BSE: ₹375 / Cr
+
+GST
+	18% on (brokerage + txn + SEBI)	18% on (brokerage + txn + SEBI)
+
+SEBI charges
+	₹10 / Cr	₹10 / Cr
+
+Stamp charges
+	0.015% or ₹1500 / Cr (buy)	0.003% or ₹300 / Cr (buy)
+
+IPFT charges
+	NSE: ₹0.01 / Cr | BSE: ₹0	NSE: ₹0.01 / Cr | BSE: ₹0
+
+FuturesOptionsBrokerage₹20 / order₹20 / orderOther ChargesSTT/CTT0.05% sell side0.15% on exercise (intrinsic value) | 0.15% on sell (premium)Transaction chargesNSE: ₹182.99 / Cr | BSE: ₹0NSE: ₹3552 / Cr (premium) | BSE: ₹3250 / Cr (premium)GST18% on (brokerage + txn + SEBI)18% on (brokerage + txn + SEBI)SEBI charges₹10 / Cr₹10 / CrStamp charges0.002% or ₹200 / Cr (buy)0.003% or ₹300 / Cr (buy)IPFT chargesNSE: ₹0.01 / Cr | BSE: ₹0NSE: ₹0.0.1 / Cr | BSE: ₹0
+
+MTFT+5Brokerage0.2%0.25% buy + delivery charges on sellInterest10.99% p.a. or 0.03% per dayInterest free for 7 daysOther ChargesSTT/CTT0.1% buy & sell0.1% buy & sellTransaction chargesNSE: ₹306.99 / Cr | BSE:₹375 / CrNSE: ₹306.99 / Cr | BSE: ₹375 / CrGST18% on (brokerage + txn + SEBI)18% on (brokerage + txn + SEBI)SEBI charges₹10 / Cr₹10 / CrStamp charges0.015% or ₹1500 / Cr (buy)0.015% or ₹1500 / Cr (buy)IPFT chargesNSE: ₹0.01 / Cr | BSE: ₹0NSE: ₹0.01 / Cr | BSE: ₹0
+
+DeliveryIntradayBrokerage0.1% buy & sell₹20 or 0.1% (lower)Other ChargesSTT/CTT0.1% buy & sell0.025% sell sideTransaction chargesNSE: ₹306.99 / Cr | BSE:₹375 / CrNSE: ₹306.99 / Cr | BSE: ₹375 / CrGST18% on (brokerage + txn + SEBI)18% on (brokerage + txn + SEBI)SEBI charges₹10 / Cr₹10 / CrStamp charges0.015% or ₹1500 / Cr (buy)0.003% or ₹300 / cr (buy)IPFT chargesNSE: ₹0.01 / Cr | BSE: ₹0NSE: ₹0.01 / Cr | BSE: ₹0
+
+FuturesOptionsBrokerage₹20 / order₹20 / orderOther ChargesSTT/CTT0.01% sell side (Non-Agri)0.05% sell sideTransaction chargesExchange: 0.0021%Exchange: 0.0418%GST18% on (brokerage + txn + SEBI)18% on (brokerage + txn + SEBI)SEBI charges₹10 / Cr₹10 / CrStamp charges0.015% or ₹1500 / Cr (buy)0.015% or ₹1500 / Cr (buy)
+
+Charge Type	Amount
+Account Opening Fees	₹0
+Call & Trade / Auto-squareoff	₹25 per order + GST
+Account Closure Charge	Yearly AMC / Demat or Ledger debit dues if any must be cleared before account closure.
+Debit Ledger Balance & Margin Shortfall Interest	13% per annum
+Modification Charges (Email, Mobile, Bank, etc.)	₹50 + GST
+Demat Account AMC (Monthly)	₹0 (opened after 15 Jun 2024) | ₹25 + GST otherwise
+Payin Securities Charges	₹25 + GST
+Pledge & Unpledge Charges	₹25 + GST
+
+Segments	Timings
+Commodities	23:20:00 PM
+F&O	15:25:00 PM
+Equity	15:24:00 PM
+
+Brokerage Charges
+
+DP & Other Charges
+
+Square Off Timings
+
+Check Estimated Trade Charges
+
+Need help with charges? Let's connect
+
+Charges Summary
+
+Trade & Invest
+
+Platforms
+
+Markets
+
+Resources
+
+Become a Partner
+
+Account opening,
+AMC* & Platform fees
+
+Open a free demat and trading account with zero AMC* for lifetime
+
+Margin Trading
+(T+5)
+
+Take advantage of zero interest & FLAT 5X margin for five days
+
+Trading API
+charges
+
+Automate trades with free Vortex API access
+
+EQ Intraday, F&O &
+Commodities
+
+Trade stocks and commodities at just ₹20 per order
+
+Step into the market with us
+
+This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.
+
+Please note that brokerage charges that are calculated will be within the maximum rate as specified by SEBI and the exchanges. All other statutory and regulatory charges are as per actuals.
+
+In addition to the charges mentioned here, Rupeezy may offer additional products, offerings and value added services that may be charged separately; any such charges or fees will be invoiced to the clients. Brokerage is also charged on expired, exercised, and assigned options contracts. The above tariff, fees, pricing and charges are subject to change, any change will be intimated to clients 7 days in advance and the same will be also updated on the app and website of Rupeezy. Clients are advised to check the same from time to time and stay updated.
+
+Leverage Facility Disclosure: I understand that leverage on stock purchases is offered by Rupeezy, subject to the applicable promotional or standard terms. Under promotional schemes, leverage may be provided at 0% interest for up to 7 days. Under standard terms, leverage products such as MTF (Margin Trading Facility) or T+5 may attract interest/charges as per the prevailing rate, currently 13% per annum or higher.
+
+Brokerage may vary from client to client, you can verify the brokerage applicable to you before placing the order under trading platform / Application
+

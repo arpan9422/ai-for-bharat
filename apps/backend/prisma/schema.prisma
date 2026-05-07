@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Lead {
+  id           String        @id @default(cuid())
+  phone        String        @unique
+  name         String?
+  language     String?
+  background   String?
+  occupation   String?
+  score        Int           @default(0)
+  status       LeadStatus    @default(COLD)
+  callScript   String?       // Optional RM-defined opening script for this lead
+  createdAt    DateTime      @default(now())
+  calls        Call[]
+  whatsappLogs WhatsappLog[]
+}
+
+model Call {
+  id             String    @id @default(cuid())
+  leadId         String
+  lead           Lead      @relation(fields: [leadId], references: [id])
+  transcript     Json      // [{role, content, timestamp, language}]
+  summary        Json?     // CallSummary object
+  score          Int       @default(0)
+  scoreBreakdown Json?
+  duration       Int?      // seconds
+  language       String?
+  recordingUrl   String?   // S3 object key — generate signed URL on demand
+  recordingSize  Int?      // bytes — for dashboard display
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+}
+
+model WhatsappLog {
+  id      String   @id @default(cuid())
+  leadId  String
+  lead    Lead     @relation(fields: [leadId], references: [id])
+  message String
+  status  String   @default("PENDING")     // PENDING = needs RM to send, SENT = sent
+  sentAt  DateTime @default(now())
+}
+
+enum LeadStatus { 
+  HOT 
+  WARM 
+  COLD 
+}

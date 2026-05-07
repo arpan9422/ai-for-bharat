@@ -1,0 +1,23 @@
+{
+  "name": "rupeezy-scraper",
+  "version": "1.0.0",
+  "description": "Rupeezy.in knowledge base scraper for RAG pipeline",
+  "scripts": {
+    "scrape": "ts-node src/index.ts scrape",
+    "embed": "ts-node src/index.ts embed",
+    "seed:objections": "ts-node src/index.ts seed",
+    "run:all": "ts-node src/index.ts all",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@paralleldrive/cuid2": "^2.2.2",
+    "@pinecone-database/pinecone": "^3.0.0",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.44.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
