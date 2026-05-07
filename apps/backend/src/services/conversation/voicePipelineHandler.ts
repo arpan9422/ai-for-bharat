@@ -35,7 +35,9 @@ import {
   updateCallMetadata,
   finalizeCallRecord,
   uploadCallAudio,
+  uploadCallAudioChunks,
   updateLeadFromConversation,
+  RecordingChunkInput,
   TranscriptMessage,
 } from './conversationStorage';
 import { streamSimpleReply, streamChatReply } from '../llm/llmService';
@@ -63,6 +65,29 @@ function assembleAgentRecording(turns: ConversationTurn[]): Buffer | null {
   // Direct MP3 concatenation — valid for playback
   return Buffer.concat(agentBuffers);
 }
+
+async function uploadConversationAudioChunks(session: SessionData): Promise<boolean> {
+  const chunks: RecordingChunkInput[] = session.conversationTurns
+    .filter(t => t.audioBuffer && t.audioBuffer.length > 0)
+    .map(t => ({
+      audioBuffer: t.audioBuffer!,
+      mimeType: t.mimeType || (t.speaker === 'agent' ? 'audio/mpeg' : 'audio/webm'),
+      speaker: t.speaker,
+      text: t.text,
+      timestamp: t.timestamp,
+    }));
+
+  if (chunks.length === 0) return false;
+
+  console.log(
+    '[VoicePipeline] Uploading conversation audio chunks:',
+    session.conversation_id,
+    'chunks:',
+    chunks.length
+  );
+  await uploadCallAudioChunks(session.conversation_id, chunks);
+  return true;
+}
 /**
  * A single turn in the conversation recording.
  * We store agent MP3 buffers in order so we can assemble
@@ -71,7 +96,8 @@ function assembleAgentRecording(turns: ConversationTurn[]): Buffer | null {
 interface ConversationTurn {
   speaker: 'agent' | 'user';
   text: string;
-  audioBuffer?: Buffer;   // MP3 for agent turns (from Sarvam TTS)
+  audioBuffer?: Buffer;
+  mimeType?: string;
   timestamp: number;
 }
 
@@ -85,7 +111,8 @@ interface SessionData {
   graph: ReturnType<typeof buildConversationGraph>;
   prepGraph: ReturnType<typeof buildPrepGraph>;
   audioChunks: Buffer[];          // user mic audio (for STT/Deepgram only)
-  conversationTurns: ConversationTurn[]; // ordered turns with agent MP3 audio
+  currentUserAudioChunks: Buffer[];
+  conversationTurns: ConversationTurn[];
   recordingStartTime: number;
   lastQuestionAsked?: string;
 }
@@ -106,14 +133,20 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
     try {
       console.log('[VoicePipeline] Starting new call session');
       
-      const finalLeadId = lead_id || leadProfile?.lead_id || leadProfile?.name || uuidv4();
+      const requestedLeadId = lead_id || leadProfile?.lead_id || leadProfile?.phone || uuidv4();
       const conversation_id = uuidv4();
       const graph = buildConversationGraph();
       const prepGraph = buildPrepGraph();
-      const initialState = createConversationState(finalLeadId, conversation_id, leadProfile);
 
       // Create call record in database
-      await createCallRecord(finalLeadId, conversation_id, leadProfile?.language || 'hinglish');
+      const { leadId: finalLeadId } = await createCallRecord(
+        requestedLeadId,
+        conversation_id,
+        leadProfile?.language || 'hinglish',
+        leadProfile
+      );
+
+      const initialState = createConversationState(finalLeadId, conversation_id, leadProfile);
 
       // Run opening node to get greeting
       const greetingResult = await graph.invoke(initialState);
@@ -128,6 +161,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         graph,
         prepGraph,
         audioChunks: [],
+        currentUserAudioChunks: [],
         conversationTurns: [],
         recordingStartTime: Date.now(),
       };
@@ -155,6 +189,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
             speaker: 'agent',
             text: greetingResult.response,
             audioBuffer: greetingAudio,
+            mimeType: 'audio/mpeg',
             timestamp: Date.now(),
           });
           for (const chunk of greetingResult.audio_chunks) {
@@ -190,6 +225,10 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
     session.isProcessing = true;
     session.finalTranscript = '';
+    const userAudioBuffer = session.currentUserAudioChunks.length > 0
+      ? Buffer.concat(session.currentUserAudioChunks)
+      : undefined;
+    session.currentUserAudioChunks = [];
     console.log('[VoicePipeline] Processing turn:', transcript);
 
     try {
@@ -202,6 +241,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       session.conversationTurns.push({
         speaker: 'user',
         text: transcript,
+        audioBuffer: userAudioBuffer,
+        mimeType: userAudioBuffer ? 'audio/webm' : undefined,
         timestamp: Date.now(),
       });
 
@@ -310,6 +351,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
               speaker: 'agent',
               text: fullResponse,
               audioBuffer,
+              mimeType: 'audio/mpeg',
               timestamp: Date.now(),
             });
           }
@@ -498,6 +540,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         
         // Store audio chunk for recording
         session.audioChunks.push(buf);
+        session.currentUserAudioChunks.push(buf);
         
         const pending: ArrayBuffer[] = (session.deepgramConn as any).__pending;
         const isReady: () => boolean = (session.deepgramConn as any).__ready;
@@ -534,13 +577,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         // Update lead information
         await updateLeadFromConversation(session.lead_id, session.conversationState);
         
-        // Assemble and upload the agent conversation recording
-        // This is a clean MP3 of everything Priya said, in order
-        const agentRecording = assembleAgentRecording(session.conversationTurns);
-        if (agentRecording && agentRecording.length > 0) {
-          console.log('[VoicePipeline] Uploading agent conversation recording, size:', agentRecording.length, 'turns:', session.conversationTurns.filter(t => t.speaker === 'agent').length);
-          await uploadCallAudio(session.conversation_id, agentRecording, 'audio/mpeg');
-        } else if (session.audioChunks.length > 0) {
+        const uploadedConversationChunks = await uploadConversationAudioChunks(session);
+        if (!uploadedConversationChunks && session.audioChunks.length > 0) {
           // Fallback: upload user mic audio
           const fullRecording = Buffer.concat(session.audioChunks);
           await uploadCallAudio(session.conversation_id, fullRecording, 'audio/webm');
@@ -588,11 +626,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       
       await updateLeadFromConversation(session.lead_id, session.conversationState);
       
-      // Upload agent conversation recording on disconnect
-      const agentRecording = assembleAgentRecording(session.conversationTurns);
-      if (agentRecording && agentRecording.length > 0) {
-        await uploadCallAudio(session.conversation_id, agentRecording, 'audio/mpeg');
-      } else if (session.audioChunks.length > 0) {
+      const uploadedConversationChunks = await uploadConversationAudioChunks(session);
+      if (!uploadedConversationChunks && session.audioChunks.length > 0) {
         const fullRecording = Buffer.concat(session.audioChunks);
         await uploadCallAudio(session.conversation_id, fullRecording, 'audio/webm');
       }

@@ -5,8 +5,38 @@ import {
   getLeadById,
   getScoreDistribution,
   getCallAnalytics,
+  getCallById,
 } from './lead.repository';
 import { BulkUploadInput, LeadFilter, LeadRow } from './lead.model';
+import { getRecordingUrl } from '../../services/storage/s3Service';
+
+interface RecordingChunkManifest {
+  index: number;
+  key: string;
+  sizeBytes: number;
+  mimeType: string;
+  speaker?: 'agent' | 'user';
+  text?: string;
+  timestamp?: number;
+}
+
+function getRecordingChunks(summary: unknown): RecordingChunkManifest[] {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return [];
+
+  const chunks = (summary as { recordingChunks?: unknown }).recordingChunks;
+  if (!Array.isArray(chunks)) return [];
+
+  return chunks
+    .filter((chunk): chunk is RecordingChunkManifest => {
+      return !!chunk
+        && typeof chunk === 'object'
+        && typeof (chunk as RecordingChunkManifest).index === 'number'
+        && typeof (chunk as RecordingChunkManifest).key === 'string'
+        && typeof (chunk as RecordingChunkManifest).sizeBytes === 'number'
+        && typeof (chunk as RecordingChunkManifest).mimeType === 'string';
+    })
+    .sort((a, b) => a.index - b.index);
+}
 
 // ── Upload a batch of leads ──────────────────────────────────────────────────
 export async function uploadLeads(input: BulkUploadInput) {
@@ -53,5 +83,25 @@ export async function getDashboardAnalytics() {
     leadCounts: { HOT: buckets.HOT, WARM: buckets.WARM, COLD: buckets.COLD },
     avgScoreByStatus: buckets.avgScore,
     calls: callAnalytics,
+  };
+}
+
+export async function getCallAudioChunks(callId: string) {
+  const call = await getCallById(callId);
+  if (!call) throw new Error('Call not found');
+
+  const chunks = getRecordingChunks(call.summary);
+  const signedChunks = await Promise.all(
+    chunks.map(async chunk => ({
+      ...chunk,
+      url: await getRecordingUrl(chunk.key).catch(() => null),
+    }))
+  );
+
+  return {
+    callId: call.id,
+    leadId: call.leadId,
+    totalChunks: signedChunks.length,
+    chunks: signedChunks,
   };
 }

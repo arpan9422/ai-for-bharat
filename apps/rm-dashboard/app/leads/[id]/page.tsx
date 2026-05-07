@@ -313,7 +313,31 @@ export default function LeadDetailPage() {
 
                 {/* Single call recording — agent voice (Priya) */}
                 <div className="mb-5">
-                  {callDetail?.recording_url ? (
+                  {callDetail.recording_chunks && callDetail.recording_chunks.length > 0 ? (
+                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-base">ðŸŽ™</span>
+                        <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Agent Voice Chunks (Priya)</p>
+                      </div>
+                      <p className="text-xs text-indigo-500 mb-3">Each generated response is saved separately in this call&apos;s recording folder</p>
+                      <div className="space-y-3">
+                        {callDetail.recording_chunks.map(chunk => (
+                          <div key={chunk.key}>
+                            <p className="text-xs font-semibold text-indigo-700 mb-1">
+                              Recording {chunk.index}{chunk.speaker ? ` · ${chunk.speaker === 'agent' ? 'Priya' : 'User'}` : ''}
+                            </p>
+                            {chunk.url ? (
+                              <audio controls className="w-full" src={chunk.url}>
+                                Your browser does not support audio playback.
+                              </audio>
+                            ) : (
+                              <p className="text-xs text-indigo-400">Signed URL unavailable</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : callDetail?.recording_url ? (
                     <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-base">🎙</span>

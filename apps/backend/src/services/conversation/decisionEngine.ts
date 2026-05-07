@@ -18,6 +18,16 @@ dotenv.config();
 const ollama = new Ollama({ host: process.env.OLLAMA_BASE_URL });
 const MODEL_FAST = process.env.OLLAMA_MODEL_FAST || 'gpt-oss:120b-cloud';
 
+const VALID_OBJECTIONS: ObjectionType[] = [
+  'already_with_broker',
+  'not_enough_contacts',
+  'client_support_concern',
+  'trust_concern',
+  'defer_decision',
+  'none',
+];
+const VALID_EMOTIONS: EmotionType[] = ['positive', 'neutral', 'negative', 'confused'];
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export type CallStage =
@@ -69,6 +79,42 @@ export interface StageTransition {
 }
 
 export interface DecisionResult extends DetectionResult, StageTransition {}
+
+function extractJsonObject(raw: string): string | null {
+  const cleaned = raw
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/i, '')
+    .trim();
+
+  if (!cleaned) return null;
+
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+
+  return cleaned.slice(start, end + 1);
+}
+
+function sanitizeDetection(parsed: Partial<DetectionResult>): DetectionResult {
+  const objection = VALID_OBJECTIONS.includes(parsed.objection as ObjectionType)
+    ? parsed.objection as ObjectionType
+    : 'none';
+  const emotion = VALID_EMOTIONS.includes(parsed.emotion as EmotionType)
+    ? parsed.emotion as EmotionType
+    : 'neutral';
+
+  return {
+    objection,
+    is_objection: Boolean(parsed.is_objection ?? objection !== 'none'),
+    emotion,
+    intent: typeof parsed.intent === 'string' ? parsed.intent : 'general_query',
+    stated_intent: Boolean(parsed.stated_intent),
+    positive_affirmation: Boolean(parsed.positive_affirmation),
+    asked_followup: Boolean(parsed.asked_followup),
+    enthusiasm: Math.min(Math.max(Number(parsed.enthusiasm) || 0, 0), 10),
+  };
+}
 
 // ── Objection rebuttals (injected into prompt context) ───────────────────────
 
@@ -242,14 +288,23 @@ Rules:
     const response = await ollama.chat({
       model: MODEL_FAST,
       messages: [{ role: 'user', content: prompt }],
+      format: 'json',
       options: { num_predict: 250, temperature: 0.1 },
       stream: false,
     });
 
-    const raw = response.message.content.trim();
+    const raw = response.message?.content?.trim() || '';
     // Strip markdown code fences if present
-    const jsonStr = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    const parsed = JSON.parse(jsonStr) as DetectionResult;
+    const jsonStr = extractJsonObject(raw);
+    if (!jsonStr) {
+      console.warn('[DecisionEngine] Empty/non-JSON LLM classification, using fallback', {
+        model: MODEL_FAST,
+        rawPreview: raw.slice(0, 120),
+      });
+      return fallbackClassify(userInput);
+    }
+    const parsed = JSON.parse(jsonStr) as Partial<DetectionResult>;
+    return sanitizeDetection(parsed);
 
     // Sanitize — ensure all fields exist with safe defaults
     return {
@@ -263,7 +318,7 @@ Rules:
       enthusiasm: Math.min(Math.max(Number(parsed.enthusiasm) || 0, 0), 10),
     };
   } catch (err) {
-    console.error('[DecisionEngine] LLM classification failed, using fallback:', err);
+    console.warn('[DecisionEngine] LLM classification failed, using fallback:', err instanceof Error ? err.message : err);
     return fallbackClassify(userInput);
   }
 }

@@ -10,6 +10,32 @@ import { getRecordingUrl } from '../storage/s3Service';
 
 const router = Router();
 
+interface RecordingChunkManifest {
+  index: number;
+  key: string;
+  sizeBytes: number;
+  mimeType: string;
+  speaker?: 'agent' | 'user';
+  text?: string;
+  timestamp?: number;
+}
+
+function getRecordingChunks(summary: unknown): RecordingChunkManifest[] {
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary)) return [];
+
+  const chunks = (summary as { recordingChunks?: unknown }).recordingChunks;
+  if (!Array.isArray(chunks)) return [];
+
+  return chunks.filter((chunk): chunk is RecordingChunkManifest => {
+    return !!chunk
+      && typeof chunk === 'object'
+      && typeof (chunk as RecordingChunkManifest).index === 'number'
+      && typeof (chunk as RecordingChunkManifest).key === 'string'
+      && typeof (chunk as RecordingChunkManifest).sizeBytes === 'number'
+      && typeof (chunk as RecordingChunkManifest).mimeType === 'string';
+  });
+}
+
 /**
  * GET /api/conversations/:conversationId
  * Get a specific conversation with transcript
@@ -34,14 +60,12 @@ router.get('/:conversationId', async (req, res) => {
       }
     }
 
-    // Generate signed URL for agent recording if available
-    let agentRecordingUrl = null;
-    if (call.recordingUrl) {
-      try {
-        const agentS3Key = `recordings/${call.id}/agent_${call.id}.mp3`;
-        agentRecordingUrl = await getRecordingUrl(agentS3Key).catch(() => null);
-      } catch {}
-    }
+    const recordingChunks = await Promise.all(
+      getRecordingChunks(call.summary).map(async chunk => ({
+        ...chunk,
+        url: await getRecordingUrl(chunk.key).catch(() => null),
+      }))
+    );
     
     res.json({
       conversation_id: call.id,
@@ -57,7 +81,7 @@ router.get('/:conversationId', async (req, res) => {
       duration: call.duration,
       language: call.language,
       recording_url: recordingUrl,
-      agent_recording_url: agentRecordingUrl,
+      recording_chunks: recordingChunks,
       recording_size: call.recordingSize,
       started_at: call.startedAt,
       ended_at: call.endedAt,

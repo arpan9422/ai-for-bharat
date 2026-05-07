@@ -32,6 +32,29 @@ export async function uploadCallRecording(
   return { key, sizeBytes: audioBuffer.byteLength };
 }
 
+export async function uploadCallRecordingChunk(
+  callId: string,
+  chunkNumber: number,
+  audioBuffer: Buffer,
+  mimeType = 'audio/mpeg'
+): Promise<{ key: string; sizeBytes: number }> {
+  const BUCKET = process.env.AWS_BUCKET_NAME;
+  if (!BUCKET) throw new Error('AWS_BUCKET_NAME is not set');
+
+  const ext = mimeType.includes('mpeg') || mimeType.includes('mp3') ? 'mp3' : 'webm';
+  const key = `recordings/${callId}/recording${chunkNumber}.${ext}`;
+
+  await s3.send(new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: key,
+    Body: audioBuffer,
+    ContentType: mimeType,
+    Metadata: { callId, chunkNumber: String(chunkNumber) },
+  }));
+
+  return { key, sizeBytes: audioBuffer.byteLength };
+}
+
 export async function getRecordingUrl(key: string): Promise<string> {
   const BUCKET = process.env.AWS_BUCKET_NAME;
   if (!BUCKET) throw new Error('AWS_BUCKET_NAME is not set');

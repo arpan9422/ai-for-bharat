@@ -5,6 +5,7 @@ import {
   getLeads,
   getLeadDetail,
   getDashboardAnalytics,
+  getCallAudioChunks,
 } from './lead.service';
 import { BulkUploadSchema, LeadFilterSchema, LeadRowSchema } from './lead.model';
 
@@ -78,5 +79,19 @@ export async function getAnalytics(req: Request, res: Response) {
   } catch (err) {
     console.error('getAnalytics error:', err);
     return res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+}
+
+// GET /api/rm/calls/:callId/audio-chunks - signed audio chunks in sequence
+export async function getCallAudioChunkList(req: Request, res: Response) {
+  const { callId } = req.params;
+
+  try {
+    const result = await getCallAudioChunks(callId);
+    return res.json(result);
+  } catch (err: any) {
+    if (err.message === 'Call not found') return res.status(404).json({ error: 'Call not found' });
+    console.error('getCallAudioChunkList error:', err);
+    return res.status(500).json({ error: 'Failed to fetch call audio chunks' });
   }
 }

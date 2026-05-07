@@ -4,7 +4,7 @@
   "description": "Express backend for Rupeezy AI Voice Agent",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "NODE_NO_WARNINGS=1 nodemon src/index.ts",
+    "dev": "nodemon src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",
     "setup": "npm install && prisma generate && prisma db push",

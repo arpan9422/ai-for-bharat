@@ -27,6 +27,8 @@ export type LeadType = 'mfd_distributor' | 'insurance_agent' | 'sub_broker' | 'u
 export interface LeadProfile {
   /** Lead ID for tracking */
   lead_id?: string;
+  /** Lead phone number for matching existing RM dashboard leads */
+  phone?: string;
   /** Lead's name for personalization */
   name?: string;
   /** Professional background (e.g., "MFD", "insurance agent") */
@@ -129,11 +131,16 @@ export function selectTemplate(leadType: LeadType, language: Language): string {
  */
 export function interpolateName(template: string, name?: string): string {
   if (name && name.trim().length > 0) {
-    return template.replace(/\{name\}/g, () => ' ' + name.trim());
+    return template
+      .replace(/\{name\}/g, () => ' ' + name.trim())
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,!?।])/g, '$1')
+      .trim();
   }
   return template
-    .replace(/\{name\}/g, '')
+    .replace(/\s*\{name\}\s*,?\s*/g, ' ')
     .replace(/\s+/g, ' ')
+    .replace(/\s+([,!?।])/g, '$1')
     .trim();
 }
 

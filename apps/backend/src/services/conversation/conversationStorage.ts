@@ -8,9 +8,10 @@
  */
 
 import { PrismaClient } from '@prisma/client';
-import { uploadCallRecording } from '../storage/s3Service';
+import { uploadCallRecording, uploadCallRecordingChunk } from '../storage/s3Service';
 import { ConversationState } from './conversationGraph';
 import { generateCallSummary, RichCallSummary } from './callSummary';
+import { LeadProfile } from './startingScript';
 
 const prisma = new PrismaClient();
 
@@ -32,27 +33,73 @@ export interface TranscriptMessage {
  */
 export type { RichCallSummary as CallSummary } from './callSummary';
 
+export interface RecordingChunk {
+  index: number;
+  key: string;
+  sizeBytes: number;
+  mimeType: string;
+  speaker?: 'agent' | 'user';
+  text?: string;
+  timestamp?: number;
+}
+
+export interface RecordingChunkInput {
+  audioBuffer: Buffer;
+  mimeType: string;
+  speaker?: 'agent' | 'user';
+  text?: string;
+  timestamp?: number;
+}
+
 /**
  * Create a new call record in the database
  */
 export async function createCallRecord(
   leadId: string,
   conversationId: string,
-  language: string = 'hinglish'
-): Promise<string> {
+  language: string = 'hinglish',
+  leadProfile?: LeadProfile
+): Promise<{ callId: string; leadId: string }> {
   try {
-    // Find or create lead
-    let lead = await prisma.lead.findUnique({
-      where: { id: leadId },
-    });
+    const phone = leadProfile?.phone?.trim();
+    const requestedLeadId = leadProfile?.lead_id || leadId;
+
+    // Resolve to one canonical lead before creating the call. This prevents
+    // duplicate temp leads when the voice client sends only a profile/phone.
+    let lead = await prisma.lead.findUnique({ where: { id: requestedLeadId } });
+
+    if (!lead && phone) {
+      lead = await prisma.lead.upsert({
+        where: { phone },
+        update: {
+          name: leadProfile?.name,
+          language,
+          occupation: leadProfile?.occupation,
+          background: leadProfile?.background,
+          callScript: leadProfile?.callScript,
+        },
+        create: {
+          id: requestedLeadId,
+          phone,
+          name: leadProfile?.name,
+          language,
+          occupation: leadProfile?.occupation,
+          background: leadProfile?.background,
+          callScript: leadProfile?.callScript,
+        },
+      });
+    }
 
     if (!lead) {
-      // Create lead if doesn't exist
       lead = await prisma.lead.create({
         data: {
-          id: leadId,
-          phone: `temp_${leadId}`, // Temporary phone, should be updated
+          id: requestedLeadId,
+          phone: `temp_${requestedLeadId}`,
+          name: leadProfile?.name,
           language,
+          occupation: leadProfile?.occupation,
+          background: leadProfile?.background,
+          callScript: leadProfile?.callScript,
         },
       });
     }
@@ -69,7 +116,7 @@ export async function createCallRecord(
     });
 
     console.log('[Storage] Created call record:', call.id);
-    return call.id;
+    return { callId: call.id, leadId: lead.id };
   } catch (error) {
     console.error('[Storage] Error creating call record:', error);
     throw error;
@@ -84,26 +131,17 @@ export async function appendTranscriptMessage(
   message: TranscriptMessage
 ): Promise<void> {
   try {
-    // Get current transcript
-    const call = await prisma.call.findUnique({
-      where: { id: conversationId },
-      select: { transcript: true },
-    });
+    const payload = JSON.stringify([message]);
+    const updated = await prisma.$executeRaw`
+      UPDATE "Call"
+      SET "transcript" = COALESCE("transcript", '[]'::jsonb) || ${payload}::jsonb
+      WHERE "id" = ${conversationId}
+    `;
 
-    if (!call) {
+    if (updated === 0) {
       console.error('[Storage] Call not found:', conversationId);
       return;
     }
-
-    // Append new message
-    const transcript = Array.isArray(call.transcript) ? call.transcript : [];
-    transcript.push(message as any); // Cast to any for Prisma Json type
-
-    // Update database
-    await prisma.call.update({
-      where: { id: conversationId },
-      data: { transcript },
-    });
 
     console.log('[Storage] Appended message to transcript:', conversationId, message.role);
   } catch (error) {
@@ -214,6 +252,73 @@ export async function uploadCallAudio(
   } catch (error) {
     console.error('[Storage] Error uploading audio:', error);
     // Don't throw - audio upload failure shouldn't break the flow
+  }
+}
+
+/**
+ * Upload conversation audio turns as separate S3 objects:
+ * recordings/{conversationId}/recording1.mp3, recording2.mp3, ...
+ */
+export async function uploadCallAudioChunks(
+  conversationId: string,
+  audioChunks: RecordingChunkInput[],
+  mimeType: string = 'audio/mpeg'
+): Promise<RecordingChunk[]> {
+  try {
+    const chunks: RecordingChunk[] = [];
+
+    for (const [idx, chunk] of audioChunks.entries()) {
+      const index = idx + 1;
+      const chunkMimeType = chunk.mimeType || mimeType;
+      const audioBuffer = chunk.audioBuffer;
+      console.log('[Storage] Uploading audio chunk:', conversationId, 'chunk:', index, 'size:', audioBuffer.length);
+
+      const { key, sizeBytes } = await uploadCallRecordingChunk(
+        conversationId,
+        index,
+        audioBuffer,
+        chunkMimeType
+      );
+
+      chunks.push({
+        index,
+        key,
+        sizeBytes,
+        mimeType: chunkMimeType,
+        speaker: chunk.speaker,
+        text: chunk.text,
+        timestamp: chunk.timestamp,
+      });
+    }
+
+    if (chunks.length === 0) return chunks;
+
+    const call = await prisma.call.findUnique({
+      where: { id: conversationId },
+      select: { summary: true },
+    });
+
+    const summary = call?.summary && typeof call.summary === 'object' && !Array.isArray(call.summary)
+      ? call.summary as Record<string, unknown>
+      : {};
+
+    await prisma.call.update({
+      where: { id: conversationId },
+      data: {
+        recordingUrl: chunks[0].key,
+        recordingSize: chunks.reduce((total, chunk) => total + chunk.sizeBytes, 0),
+        summary: {
+          ...summary,
+          recordingChunks: chunks,
+        } as unknown as Parameters<typeof prisma.call.update>[0]['data']['summary'],
+      },
+    });
+
+    console.log('[Storage] Audio chunks uploaded successfully:', conversationId, 'chunks:', chunks.length);
+    return chunks;
+  } catch (error) {
+    console.error('[Storage] Error uploading audio chunks:', error);
+    return [];
   }
 }
 

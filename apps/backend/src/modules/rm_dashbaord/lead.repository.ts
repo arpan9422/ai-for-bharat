@@ -97,3 +97,18 @@ export async function getCallAnalytics() {
 
   return { totalCalls, avgDuration: avgDuration._avg, recentCalls };
 }
+
+export async function getCallById(callId: string) {
+  return prisma.call.findUnique({
+    where: { id: callId },
+    select: {
+      id: true,
+      leadId: true,
+      summary: true,
+      recordingUrl: true,
+      recordingSize: true,
+      startedAt: true,
+      endedAt: true,
+    },
+  });
+}
