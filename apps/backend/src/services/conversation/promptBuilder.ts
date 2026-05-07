@@ -90,9 +90,10 @@ export function buildPrompt(ctx: PromptContext): string {
 
   // Lead context
   if (ctx.leadProfile) {
-    const { name, occupation, background, previousConversation } = ctx.leadProfile;
+    const { name, phone, occupation, background, previousConversation } = ctx.leadProfile;
     const parts2: string[] = [];
     if (name)       parts2.push(`Name: ${name}`);
+    if (phone)      parts2.push(`Phone: ${phone}`);
     if (occupation) parts2.push(`Occupation: ${occupation}`);
     if (background) parts2.push(`Background: ${background}`);
     if (parts2.length) parts.push(`LEAD: ${parts2.join(' | ')}`);
