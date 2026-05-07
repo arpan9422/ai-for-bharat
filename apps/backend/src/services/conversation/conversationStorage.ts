@@ -203,8 +203,13 @@ export async function finalizeCallRecord(
     // Fetch full transcript from DB for summary generation
     const callRecord = await prisma.call.findUnique({
       where: { id: conversationId },
-      select: { transcript: true },
+      select: { leadId: true, transcript: true },
     });
+
+    if (!callRecord) {
+      console.error('[Storage] Call not found during finalize:', conversationId);
+      return null;
+    }
 
     const transcript = Array.isArray(callRecord?.transcript)
       ? (callRecord!.transcript as Array<{ role: string; content: string }>)
@@ -220,11 +225,25 @@ export async function finalizeCallRecord(
       where: { id: conversationId },
       data: {
         summary: summary as unknown as Parameters<typeof prisma.call.update>[0]['data']['summary'],
-        score: state.score,
+        score: summary.finalScore,
         duration: durationSeconds,
         endedAt: new Date(),
       },
     });
+
+    await prisma.lead.update({
+      where: { id: callRecord.leadId },
+      data: {
+        score: summary.finalScore,
+        status: summary.status,
+        language: state.detected_language,
+      },
+    });
+
+    state.score = summary.finalScore;
+    state.engagement_level =
+      summary.status === 'HOT' ? 'high' :
+      summary.status === 'WARM' ? 'medium' : 'low';
 
     console.log('[Storage] Finalized call record with rich summary:', conversationId, {
       status: summary.status,
@@ -434,13 +453,15 @@ export async function getPreviousConversationContext(
  */
 export async function updateLeadFromConversation(
   leadId: string,
-  state: ConversationState
+  state: ConversationState,
+  summary?: RichCallSummary | null
 ): Promise<void> {
   try {
-    const score = state.score;
+    const score = typeof summary?.finalScore === 'number' ? summary.finalScore : state.score;
     const status =
-      score >= 75 ? 'HOT' :
-      score >= 45 ? 'WARM' : 'COLD';
+      summary?.status ||
+      (score >= 75 ? 'HOT' :
+      score >= 45 ? 'WARM' : 'COLD');
 
     const updateData: Record<string, unknown> = {
       score,

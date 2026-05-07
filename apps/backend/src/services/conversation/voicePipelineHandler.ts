@@ -86,8 +86,30 @@ async function uploadConversationAudioChunks(session: SessionData): Promise<bool
     'chunks:',
     chunks.length
   );
-  await uploadCallAudioChunks(session.conversation_id, chunks);
+  const uploadedChunks = await uploadCallAudioChunks(session.conversation_id, chunks);
+  if (uploadedChunks.length === 0) {
+    console.error(
+      '[VoicePipeline] Conversation audio chunk upload produced no S3 objects:',
+      session.conversation_id
+    );
+    return false;
+  }
   return true;
+}
+
+function flushPendingUserAudioTurn(session: SessionData): void {
+  if (session.currentUserAudioChunks.length === 0) return;
+
+  const userAudioBuffer = Buffer.concat(session.currentUserAudioChunks);
+  session.currentUserAudioChunks = [];
+
+  session.conversationTurns.push({
+    speaker: 'user',
+    text: session.finalTranscript.trim() || '[untranscribed user audio]',
+    audioBuffer: userAudioBuffer,
+    mimeType: 'audio/webm',
+    timestamp: Date.now(),
+  });
 }
 /**
  * A single turn in the conversation recording.
@@ -465,8 +487,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       // End of conversation — only if explicitly triggered by scoring logic
       if (!session.conversationState.should_continue && session.conversationState.end_reason) {
         if (!session) return;
-        await finalizeCallRecord(session.conversation_id, session.conversationState, session.recordingStartTime);
-        await updateLeadFromConversation(session.lead_id, session.conversationState);
+        const summary = await finalizeCallRecord(session.conversation_id, session.conversationState, session.recordingStartTime);
+        await updateLeadFromConversation(session.lead_id, session.conversationState, summary);
         send({ type: 'CALL_ENDING', payload: { reason: session.conversationState.end_reason, score: session.conversationState.score } });
       }
 
@@ -591,6 +613,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         if (session.deepgramConn) {
           session.deepgramConn.finish();
         }
+        flushPendingUserAudioTurn(session);
         
         // Finalize call record — generates rich LLM summary
         const summary = await finalizeCallRecord(
@@ -600,7 +623,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         );
         
         // Update lead information
-        await updateLeadFromConversation(session.lead_id, session.conversationState);
+        await updateLeadFromConversation(session.lead_id, session.conversationState, summary);
         
         const uploadedConversationChunks = await uploadConversationAudioChunks(session);
         if (!uploadedConversationChunks && session.audioChunks.length > 0) {
@@ -646,13 +669,14 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
     
     if (session && !isFinalizing) {
       isFinalizing = true;
-      await finalizeCallRecord(
+      flushPendingUserAudioTurn(session);
+      const summary = await finalizeCallRecord(
         session.conversation_id,
         session.conversationState,
         session.recordingStartTime
       );
       
-      await updateLeadFromConversation(session.lead_id, session.conversationState);
+      await updateLeadFromConversation(session.lead_id, session.conversationState, summary);
       
       const uploadedConversationChunks = await uploadConversationAudioChunks(session);
       if (!uploadedConversationChunks && session.audioChunks.length > 0) {
@@ -677,12 +701,20 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
     
     if (session && !isFinalizing) {
       isFinalizing = true;
+      flushPendingUserAudioTurn(session);
       // Finalize call on error
-      await finalizeCallRecord(
+      const summary = await finalizeCallRecord(
         session.conversation_id,
         session.conversationState,
         session.recordingStartTime
       );
+      await updateLeadFromConversation(session.lead_id, session.conversationState, summary);
+      
+      const uploadedConversationChunks = await uploadConversationAudioChunks(session);
+      if (!uploadedConversationChunks && session.audioChunks.length > 0) {
+        const fullRecording = Buffer.concat(session.audioChunks);
+        await uploadCallAudio(session.conversation_id, fullRecording, 'audio/webm');
+      }
       
       if (session.deepgramConn) {
         session.deepgramConn.finish();
