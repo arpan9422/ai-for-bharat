@@ -108,12 +108,4 @@ server.listen(port, () => {
   console.log(`🚀 Rupeezy Backend running on http://localhost:${port}`);
   console.log(`🔌 WebSocket server listening on ws://localhost:${port}/ws/voice`);
   console.log(`🔌 LangGraph pipeline on ws://localhost:${port}/ws/voice-pipeline`);
-
-  // Pre-warm filler audio cache at startup (background, non-blocking)
-  // This ensures fillers are instant when the first call comes in
-  import('./services/tts/fillerAudioService').then(({ warmFillerCache }) => {
-    warmFillerCache('hi-IN');
-    warmFillerCache('en-IN');
-    console.log('🎵 Filler audio cache warming up...');
-  }).catch(() => {});
 });

@@ -68,6 +68,7 @@ export function fetchConversation(conversationId: string) {
     duration?: number;
     language?: string;
     recording_url?: string;
+    agent_recording_url?: string;
     started_at: string;
     ended_at?: string;
   }>(`/api/conversations/${conversationId}`);

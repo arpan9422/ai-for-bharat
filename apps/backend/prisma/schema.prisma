@@ -44,7 +44,7 @@ model WhatsappLog {
   leadId  String
   lead    Lead     @relation(fields: [leadId], references: [id])
   message String
-  status  String   @default("PENDING")     // PENDING = needs RM to send, SENT = sent
+  status  String   @default("SENT")        // Always "SENT" in mock
   sentAt  DateTime @default(now())
 }
 

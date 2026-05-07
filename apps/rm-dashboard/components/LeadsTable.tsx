@@ -70,7 +70,7 @@ export default function LeadsTable({ leads, loading }: Props) {
               <td className="py-3 px-4">
                 <Link
                   href={`/leads/${lead.id}`}
-                  className="text-xs text-indigo-600 font-medium opacity-0 group-hover:opacity-100 transition-opacity hover:underline"
+                  className="text-xs text-indigo-600 font-semibold border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg transition-colors"
                 >
                   View →
                 </Link>

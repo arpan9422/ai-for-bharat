@@ -7,11 +7,11 @@ import LeadsTable from '@/components/LeadsTable';
 import AddLeadModal from '@/components/AddLeadModal';
 import BulkUploadModal from '@/components/BulkUploadModal';
 
-const TABS: { label: string; value: string; icon: string }[] = [
-  { label: 'All', value: '', icon: '👥' },
-  { label: 'Hot', value: 'HOT', icon: '🔥' },
-  { label: 'Warm', value: 'WARM', icon: '🌡️' },
-  { label: 'Cold', value: 'COLD', icon: '❄️' },
+const TABS: { label: string; value: string; icon: string; color: string }[] = [
+  { label: 'All Leads', value: '', icon: '👥', color: '' },
+  { label: 'Hot', value: 'HOT', icon: '🔥', color: 'text-red-600' },
+  { label: 'Warm', value: 'WARM', icon: '🌡️', color: 'text-amber-600' },
+  { label: 'Cold', value: 'COLD', icon: '❄️', color: 'text-blue-600' },
 ];
 
 function LeadsContent() {
@@ -57,28 +57,32 @@ function LeadsContent() {
     router.push(`/leads${params.toString() ? `?${params}` : ''}`);
   };
 
+  const activeTab = TABS.find(t => t.value === statusParam) ?? TABS[0];
+
   return (
     <>
       {showAdd && <AddLeadModal onClose={() => setShowAdd(false)} onCreated={() => load(1)} />}
       {showBulk && <BulkUploadModal onClose={() => setShowBulk(false)} onUploaded={() => load(1)} />}
 
-      <div className="space-y-5">
+      <div className="space-y-5 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Leads</h1>
-            <p className="text-sm text-gray-500 mt-0.5">{total} total leads</p>
+            <h1 className="text-2xl font-black text-slate-900">Leads</h1>
+            <p className="text-sm text-slate-400 mt-1 font-medium">
+              {loading ? 'Loading…' : `${total} ${activeTab.label.toLowerCase()} · Page ${page} of ${totalPages || 1}`}
+            </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setShowBulk(true)}
-              className="flex items-center gap-1.5 text-sm border border-gray-200 text-gray-600 px-3 py-2 rounded-xl hover:bg-white hover:shadow-sm transition-all font-medium"
+              className="flex items-center gap-1.5 text-sm border border-slate-200 text-slate-600 bg-white px-4 py-2 rounded-xl hover:bg-slate-50 hover:shadow-sm transition-all font-medium"
             >
               📤 Bulk Upload
             </button>
             <button
               onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors font-medium shadow-sm"
+              className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-4 py-2 rounded-xl hover:bg-indigo-700 transition-colors font-semibold shadow-sm shadow-indigo-200"
             >
               + Add Lead
             </button>
@@ -86,26 +90,28 @@ function LeadsContent() {
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
-            ⚠️ {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+            <span>⚠️</span> {error}
+            <button onClick={() => load(1)} className="ml-auto text-red-600 underline text-xs font-medium">Retry</button>
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="flex border-b border-gray-100">
+        {/* Tabs + Table */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+          {/* Tab bar */}
+          <div className="flex border-b border-slate-100 bg-slate-50/50">
             {TABS.map(tab => (
               <button
                 key={tab.value}
                 onClick={() => setTab(tab.value)}
-                className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                className={`flex items-center gap-2 px-5 py-3.5 text-sm font-semibold transition-all border-b-2 -mb-px ${
                   statusParam === tab.value
-                    ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                    ? 'border-indigo-600 text-indigo-600 bg-white'
+                    : 'border-transparent text-slate-400 hover:text-slate-700 hover:bg-white/60'
                 }`}
               >
                 <span>{tab.icon}</span>
-                {tab.label}
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -116,25 +122,25 @@ function LeadsContent() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-50">
-              <p className="text-xs text-gray-500">
-                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+            <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-50 bg-slate-50/30">
+              <p className="text-xs text-slate-400 font-medium">
+                Showing {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total} leads
               </p>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1">
                 <button
                   onClick={() => load(page - 1)}
                   disabled={page === 1}
-                  className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                  className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-white hover:shadow-sm transition-all font-medium"
                 >
                   ← Prev
                 </button>
-                <span className="px-3 py-1.5 text-xs text-gray-600 font-medium">
+                <span className="px-3 py-1.5 text-xs text-slate-600 font-bold bg-white border border-slate-200 rounded-lg">
                   {page} / {totalPages}
                 </span>
                 <button
                   onClick={() => load(page + 1)}
                   disabled={page === totalPages}
-                  className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                  className="px-3 py-1.5 text-xs border border-slate-200 rounded-lg disabled:opacity-40 hover:bg-white hover:shadow-sm transition-all font-medium"
                 >
                   Next →
                 </button>
@@ -149,7 +155,12 @@ function LeadsContent() {
 
 export default function LeadsPage() {
   return (
-    <Suspense fallback={<div className="h-64 bg-gray-100 rounded-2xl animate-pulse" />}>
+    <Suspense fallback={
+      <div className="space-y-4 max-w-7xl">
+        <div className="h-10 w-48 bg-slate-100 rounded-xl animate-pulse" />
+        <div className="h-96 bg-slate-100 rounded-2xl animate-pulse" />
+      </div>
+    }>
       <LeadsContent />
     </Suspense>
   );

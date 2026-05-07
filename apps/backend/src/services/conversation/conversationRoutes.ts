@@ -33,6 +33,15 @@ router.get('/:conversationId', async (req, res) => {
         console.error('Error generating recording URL:', error);
       }
     }
+
+    // Generate signed URL for agent recording if available
+    let agentRecordingUrl = null;
+    if (call.recordingUrl) {
+      try {
+        const agentS3Key = `recordings/${call.id}/agent_${call.id}.mp3`;
+        agentRecordingUrl = await getRecordingUrl(agentS3Key).catch(() => null);
+      } catch {}
+    }
     
     res.json({
       conversation_id: call.id,
@@ -48,6 +57,7 @@ router.get('/:conversationId', async (req, res) => {
       duration: call.duration,
       language: call.language,
       recording_url: recordingUrl,
+      agent_recording_url: agentRecordingUrl,
       recording_size: call.recordingSize,
       started_at: call.startedAt,
       ended_at: call.endedAt,

@@ -35,7 +35,6 @@ export interface Call {
   startedAt: string;
   endedAt?: string;
   summary?: CallSummary;
-  recordingUrl?: string | null;
 }
 
 export interface LeadDetail extends Lead {

@@ -43,81 +43,36 @@ import { buildPrompt } from './promptBuilder';
 import { synthesizeSpeechBuffer, detectTTSLanguage } from '../tts/sarvamTTS';
 import { computeScore } from '../scoring/scoringEngine';
 import { CallStage } from './decisionEngine';
-import { getFillerAudio, selectFiller, warmFillerCache } from '../tts/fillerAudioService';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+/**
+ * Assemble a full conversation recording by concatenating all agent MP3 turns.
+ * MP3 concatenation is valid — browsers and players handle it correctly.
+ * The result is a single MP3 file containing everything Priya said in order.
+ *
+ * Why agent-only: agent audio is clean server-generated MP3.
+ * User audio is webm/opus from browser mic — different format, can't mix without ffmpeg.
+ * The transcript provides the user's side of the conversation.
+ */
+function assembleAgentRecording(turns: ConversationTurn[]): Buffer | null {
+  const agentBuffers = turns
+    .filter(t => t.speaker === 'agent' && t.audioBuffer)
+    .map(t => t.audioBuffer!);
 
-// ── WhatsApp intent detection ─────────────────────────────────────────────────
+  if (agentBuffers.length === 0) return null;
 
-const WHATSAPP_INTENT_PATTERNS = [
-  /whatsapp\s*(pe|par|mein|ko|send|bhej)/i,
-  /link\s*(bhejo|send|de|do)/i,
-  /details?\s*(bhejo|send|de|do|whatsapp)/i,
-  /information\s*(send|bhejo|whatsapp)/i,
-  /send\s*(me|kar|do)\s*(link|details|info)/i,
-  /whatsapp\s*(karo|karna|kar)/i,
-  /message\s*(karo|bhejo|send)/i,
-];
-
-const RELEVANT_INFO_KEYWORDS = [
-  'rupeezy', 'brokerage', 'payout', 'joining', 'partner', 'ap program',
-  'sign up', 'register', 'link', 'details', 'information', 'program',
-];
-
-interface WhatsAppIntentResult {
-  shouldSend: boolean;
-  message: string;
-  reason: string;
+  // Direct MP3 concatenation — valid for playback
+  return Buffer.concat(agentBuffers);
 }
-
-function detectWhatsAppIntent(
-  userTranscript: string,
-  agentResponse: string,
-): WhatsAppIntentResult {
-  const t = userTranscript.toLowerCase();
-
-  // Check if user asked for WhatsApp
-  const askedForWhatsApp = WHATSAPP_INTENT_PATTERNS.some(p => p.test(t));
-  if (!askedForWhatsApp) {
-    return { shouldSend: false, message: '', reason: 'no_whatsapp_intent' };
-  }
-
-  // Check if the context is relevant (not asking for something off-topic)
-  const isRelevant = RELEVANT_INFO_KEYWORDS.some(k => t.includes(k) || agentResponse.toLowerCase().includes(k));
-  if (!isRelevant) {
-    return { shouldSend: false, message: '', reason: 'irrelevant_request' };
-  }
-
-  // Build the message to log
-  const message = agentResponse.length > 20 ? agentResponse : 'Rupeezy AP Program details and sign-up link';
-  return { shouldSend: true, message, reason: 'relevant_whatsapp_request' };
-}
-
-async function logWhatsAppMessage(
-  leadId: string,
-  message: string,
-  state: ConversationState,
-): Promise<void> {
-  try {
-    // Build a proper WhatsApp message using the call summary template
-    const lang = state.detected_language;
-    const name = state.lead_profile?.name || '';
-    const whatsappText = lang === 'english'
-      ? `Hi ${name}! Following up on our Rupeezy conversation.\n\n✅ Zero joining fee\n✅ 100% brokerage share\n✅ Daily payouts via RISE Portal\n\nJoin here: https://rupeezy.in/partner\n\n— Priya, Rupeezy Partner Team`
-      : `Namaste ${name}! Rupeezy ke baare mein humari baat hui thi.\n\n✅ Zero joining fee\n✅ 100% brokerage share\n✅ Daily payout via RISE Portal\n\nYahan join karein: https://rupeezy.in/partner\n\n— Priya, Rupeezy Partner Team`;
-
-    await prisma.whatsappLog.create({
-      data: {
-        leadId,
-        message: whatsappText,
-        status: 'PENDING', // RM needs to actually send it
-      },
-    });
-    console.log('[VoicePipeline] WhatsApp message logged for lead:', leadId);
-  } catch (e: any) {
-    console.error('[VoicePipeline] Failed to log WhatsApp message:', e.message);
-  }
+/**
+ * A single turn in the conversation recording.
+ * We store agent MP3 buffers in order so we can assemble
+ * a complete agent-side recording at call end.
+ */
+interface ConversationTurn {
+  speaker: 'agent' | 'user';
+  text: string;
+  audioBuffer?: Buffer;   // MP3 for agent turns (from Sarvam TTS)
+  timestamp: number;
 }
 
 interface SessionData {
@@ -129,12 +84,10 @@ interface SessionData {
   isProcessing: boolean;
   graph: ReturnType<typeof buildConversationGraph>;
   prepGraph: ReturnType<typeof buildPrepGraph>;
-  audioChunks: Buffer[];        // user mic audio
-  agentAudioChunks: Buffer[];   // agent TTS audio
+  audioChunks: Buffer[];          // user mic audio (for STT/Deepgram only)
+  conversationTurns: ConversationTurn[]; // ordered turns with agent MP3 audio
   recordingStartTime: number;
-  lastFillerKey?: string;
   lastQuestionAsked?: string;
-  callEnding: boolean;          // flag to interrupt processing immediately
 }
 
 export function setupVoicePipelineConnection(ws: WebSocket) {
@@ -175,14 +128,9 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         graph,
         prepGraph,
         audioChunks: [],
-        agentAudioChunks: [],
+        conversationTurns: [],
         recordingStartTime: Date.now(),
-        callEnding: false,
       };
-
-      // Warm filler cache in background after greeting
-      const fillerLang = (greetingResult.detected_language === 'english') ? 'en-IN' : 'hi-IN';
-      warmFillerCache(fillerLang);
 
       // Store greeting in transcript
       if (greetingResult.response) {
@@ -196,15 +144,21 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         await appendTranscriptMessage(conversation_id, greetingMessage);
       }
 
-      // Send greeting to client
+      // Send greeting to client + store agent audio turn
       if (greetingResult.response) {
         send({ type: 'GREETING', payload: greetingResult.response });
         
-        // Generate and send greeting audio
         if (greetingResult.audio_chunks && greetingResult.audio_chunks.length > 0) {
+          const greetingAudio = Buffer.concat(greetingResult.audio_chunks);
+          // Store greeting as first agent turn
+          session.conversationTurns.push({
+            speaker: 'agent',
+            text: greetingResult.response,
+            audioBuffer: greetingAudio,
+            timestamp: Date.now(),
+          });
           for (const chunk of greetingResult.audio_chunks) {
             send({ type: 'AUDIO_PLAY', payload: chunk.toString('base64') });
-            session.agentAudioChunks.push(chunk); // store agent audio
           }
           send({ type: 'TURN_DONE' });
         }
@@ -233,14 +187,10 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
    */
   const handleUserTurn = async (transcript: string) => {
     if (!session || session.isProcessing || !transcript.trim()) return;
-    if (session.callEnding) return; // call is ending — don't process new turns
 
     session.isProcessing = true;
     session.finalTranscript = '';
     console.log('[VoicePipeline] Processing turn:', transcript);
-
-    let fillerPlayed = false;
-    let fillerTimer: ReturnType<typeof setTimeout> | null = null;
 
     try {
       await appendTranscriptMessage(session.conversation_id, {
@@ -248,32 +198,14 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       });
       send({ type: 'TRANSCRIPT', payload: transcript });
 
+      // Store user turn (no audio buffer — we have the transcript)
+      session.conversationTurns.push({
+        speaker: 'user',
+        text: transcript,
+        timestamp: Date.now(),
+      });
+
       const startTime = Date.now();
-
-      // ── Filler: play context-aware filler after 300ms if response not ready ──
-      // Fillers are pre-cached at startup so getFillerAudio() is instant
-      const fillerLang = session.conversationState.detected_language === 'english' ? 'en-IN' : 'hi-IN';
-      const fillerContext = session.conversationState.is_objection ? 'objection'
-        : session.conversationState.emotion === 'positive' ? 'positive'
-        : transcript.split(' ').length > 5 ? 'question'
-        : 'neutral';
-
-      let fillerPlayed = false;
-      fillerTimer = setTimeout(async () => {
-        if (!session || !session.isProcessing) return;
-        try {
-          const filler = selectFiller(fillerLang, fillerContext as any, session.lastFillerKey);
-          const fillerBuf = await getFillerAudio(filler);
-          if (session && session.isProcessing) {
-            send({ type: 'FILLER_AUDIO', payload: fillerBuf.toString('base64') });
-            session.lastFillerKey = filler.key;
-            fillerPlayed = true;
-            console.log('[VoicePipeline] Filler played:', filler.key);
-          }
-        } catch (e) {
-          // Filler is optional — silent fail
-        }
-      }, 300);
 
       // ── Step 1: Run ONLY parallelPrepare via graph ──
       const prepResult = await session.prepGraph.invoke(
@@ -290,7 +222,6 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       ) as typeof session.conversationState;
 
       console.log('[VoicePipeline] PrepGraph done in', Date.now() - startTime, 'ms');
-      if (fillerTimer) clearTimeout(fillerTimer);
 
       // ── Step 2: Generate LLM response ──
       // Inject last question asked to prevent repetition
@@ -373,8 +304,15 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         if (audioBuffer && audioBuffer.length > 0) {
           send({ type: 'AUDIO_PLAY', payload: audioBuffer.toString('base64') });
           audioChunkCount++;
-          // Store agent audio for recording
-          if (session) session.agentAudioChunks.push(audioBuffer);
+          // Store agent turn with audio for recording assembly
+          if (session) {
+            session.conversationTurns.push({
+              speaker: 'agent',
+              text: fullResponse,
+              audioBuffer,
+              timestamp: Date.now(),
+            });
+          }
         }
       } catch (ttsErr: any) {
         console.error('[VoicePipeline] TTS error:', ttsErr.message);
@@ -382,19 +320,6 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
       if (audioChunkCount === 0) {
         console.warn('[VoicePipeline] No audio generated for response:', fullResponse.substring(0, 60));
-      }
-
-      // ── WhatsApp intent detection ──
-      // If lead asked to send info on WhatsApp, validate and log it
-      if (session) {
-        const whatsappIntent = detectWhatsAppIntent(transcript, fullResponse);
-        if (whatsappIntent.shouldSend) {
-          await logWhatsAppMessage(
-            session.lead_id,
-            whatsappIntent.message,
-            session.conversationState,
-          ).catch(e => console.error('[VoicePipeline] WhatsApp log error:', e.message));
-        }
       }
 
       send({ type: 'TURN_DONE' });
@@ -482,7 +407,6 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
     } catch (error: any) {
       console.error('[VoicePipeline] Turn error:', error);
-      if (fillerTimer) clearTimeout(fillerTimer);
       send({ type: 'ERROR', payload: error.message || 'Failed to process turn' });
     } finally {
       if (session) session.isProcessing = false;
@@ -592,72 +516,58 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         }
       }
 
-      // END_CALL: Interrupt immediately and cleanup
+      // END_CALL: Cleanup session
       if (msg.type === 'END_CALL') {
-        console.log('[VoicePipeline] END_CALL received — interrupting immediately');
-
-        if (!session) return;
-
-        // Set flag to interrupt any ongoing handleUserTurn
-        session.callEnding = true;
-        session.isProcessing = false; // allow cleanup to proceed
-
-        const endSession = session;
-        session = null; // null immediately so no new turns start
-
-        // Stop Deepgram
-        if (endSession.deepgramConn) {
-          endSession.deepgramConn.finish();
+        console.log('[VoicePipeline] Ending call session:', session.conversation_id);
+        
+        if (session.deepgramConn) {
+          session.deepgramConn.finish();
         }
-
-        // Send CALL_ENDED immediately — don't wait for finalization
-        send({
+        
+        // Finalize call record — generates rich LLM summary
+        const summary = await finalizeCallRecord(
+          session.conversation_id, 
+          session.conversationState, 
+          session.recordingStartTime
+        );
+        
+        // Update lead information
+        await updateLeadFromConversation(session.lead_id, session.conversationState);
+        
+        // Assemble and upload the agent conversation recording
+        // This is a clean MP3 of everything Priya said, in order
+        const agentRecording = assembleAgentRecording(session.conversationTurns);
+        if (agentRecording && agentRecording.length > 0) {
+          console.log('[VoicePipeline] Uploading agent conversation recording, size:', agentRecording.length, 'turns:', session.conversationTurns.filter(t => t.speaker === 'agent').length);
+          await uploadCallAudio(session.conversation_id, agentRecording, 'audio/mpeg');
+        } else if (session.audioChunks.length > 0) {
+          // Fallback: upload user mic audio
+          const fullRecording = Buffer.concat(session.audioChunks);
+          await uploadCallAudio(session.conversation_id, fullRecording, 'audio/webm');
+        }
+        
+        // Send final stats + summary to client
+        send({ 
           type: 'CALL_ENDED',
           payload: {
-            conversation_id: endSession.conversation_id,
-            turn_count: endSession.conversationState.turn_count,
-            final_score: endSession.conversationState.score,
-            engagement: endSession.conversationState.engagement_level,
-            handoff_occurred: endSession.conversationState.handoff,
+            conversation_id: session.conversation_id,
+            turn_count: session.conversationState.turn_count,
+            final_score: session.conversationState.score,
+            engagement: session.conversationState.engagement_level,
+            handoff_occurred: session.conversationState.handoff,
+            // Rich summary fields for the test UI
+            summary: summary ? {
+              status: summary.status,
+              keyPoints: summary.keyPoints,
+              objectionsRaised: summary.objectionsRaised,
+              statedIntent: summary.statedIntent,
+              rmOpener: summary.rmOpener,
+              nextAction: summary.nextAction,
+              whatsappMessage: summary.whatsappMessage,
+            } : null,
           }
         });
-
-        // Finalize in background — don't block the response
-        (async () => {
-          try {
-            const summary = await finalizeCallRecord(
-              endSession.conversation_id,
-              endSession.conversationState,
-              endSession.recordingStartTime
-            );
-            await updateLeadFromConversation(endSession.lead_id, endSession.conversationState);
-
-            // Upload combined recording (user + agent audio)
-            const allChunks = [...endSession.audioChunks, ...endSession.agentAudioChunks];
-            if (allChunks.length > 0) {
-              const fullRecording = Buffer.concat(allChunks);
-              await uploadCallAudio(endSession.conversation_id, fullRecording, 'audio/webm');
-            }
-
-            // Send summary update if WS still open
-            if (ws.readyState === WebSocket.OPEN && summary) {
-              send({
-                type: 'CALL_SUMMARY',
-                payload: {
-                  status: summary.status,
-                  keyPoints: summary.keyPoints,
-                  objectionsRaised: summary.objectionsRaised,
-                  statedIntent: summary.statedIntent,
-                  rmOpener: summary.rmOpener,
-                  nextAction: summary.nextAction,
-                  whatsappMessage: summary.whatsappMessage,
-                }
-              });
-            }
-          } catch (e: any) {
-            console.error('[VoicePipeline] Background finalization error:', e.message);
-          }
-        })();
+        session = null;
       }
 
     } catch (error: any) {
@@ -678,7 +588,11 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       
       await updateLeadFromConversation(session.lead_id, session.conversationState);
       
-      if (session.audioChunks.length > 0) {
+      // Upload agent conversation recording on disconnect
+      const agentRecording = assembleAgentRecording(session.conversationTurns);
+      if (agentRecording && agentRecording.length > 0) {
+        await uploadCallAudio(session.conversation_id, agentRecording, 'audio/mpeg');
+      } else if (session.audioChunks.length > 0) {
         const fullRecording = Buffer.concat(session.audioChunks);
         await uploadCallAudio(session.conversation_id, fullRecording, 'audio/webm');
       }

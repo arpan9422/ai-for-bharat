@@ -17,7 +17,9 @@ export async function uploadCallRecording(
   const BUCKET = process.env.AWS_BUCKET_NAME;
   if (!BUCKET) throw new Error('AWS_BUCKET_NAME is not set');
 
-  const key = `recordings/${callId}/${callId}.webm`;
+  // Use correct extension based on mime type
+  const ext = mimeType.includes('mpeg') || mimeType.includes('mp3') ? 'mp3' : 'webm';
+  const key = `recordings/${callId}/${callId}.${ext}`;
 
   await s3.send(new PutObjectCommand({
     Bucket: BUCKET,
