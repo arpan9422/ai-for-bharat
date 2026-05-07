@@ -8,23 +8,24 @@ For a deeper system-design view, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 1. [What This Project Contains](#what-this-project-contains)
 2. [How The System Works](#how-the-system-works)
-3. [Repository Structure](#repository-structure)
-4. [Prerequisites](#prerequisites)
-5. [Environment Variables](#environment-variables)
-6. [First-Time Setup](#first-time-setup)
-7. [How To Open The App](#how-to-open-the-app)
-8. [How To Use The Dashboard](#how-to-use-the-dashboard)
-9. [How To Test Voice Calls](#how-to-test-voice-calls)
-10. [Important Backend APIs](#important-backend-apis)
-11. [Voice Pipeline Internals](#voice-pipeline-internals)
-12. [Database And Storage](#database-and-storage)
-13. [Multiple Calls Per Lead](#multiple-calls-per-lead)
-14. [Recording Chunks](#recording-chunks)
-15. [Previous Call Memory](#previous-call-memory)
-16. [TTS Behavior](#tts-behavior)
-17. [Common Commands](#common-commands)
-18. [Troubleshooting](#troubleshooting)
-19. [Where To Change Things](#where-to-change-things)
+3. [System Design](#system-design)
+4. [Repository Structure](#repository-structure)
+5. [Prerequisites](#prerequisites)
+6. [Environment Variables](#environment-variables)
+7. [First-Time Setup](#first-time-setup)
+8. [How To Open The App](#how-to-open-the-app)
+9. [How To Use The Dashboard](#how-to-use-the-dashboard)
+10. [How To Test Voice Calls](#how-to-test-voice-calls)
+11. [Important Backend APIs](#important-backend-apis)
+12. [Voice Pipeline Internals](#voice-pipeline-internals)
+13. [Database And Storage](#database-and-storage)
+14. [Multiple Calls Per Lead](#multiple-calls-per-lead)
+15. [Recording Chunks](#recording-chunks)
+16. [Previous Call Memory](#previous-call-memory)
+17. [TTS Behavior](#tts-behavior)
+18. [Common Commands](#common-commands)
+19. [Troubleshooting](#troubleshooting)
+20. [Where To Change Things](#where-to-change-things)
 
 ## What This Project Contains
 
@@ -93,6 +94,133 @@ Voice call flow:
 10. Backend stores transcript messages.
 11. Backend stores user and agent audio chunks in S3 in sequence.
 12. At call end, backend generates summary and updates lead score/status.
+
+## System Design
+
+The system is split into five layers:
+
+1. Frontend layer
+   - RM dashboard built with Next.js.
+   - Shows leads, analytics, call history, transcripts, summaries, and recordings.
+
+2. API layer
+   - Express REST APIs for leads, calls, analytics, and recording chunks.
+   - WebSocket APIs for live voice calls.
+
+3. Conversation intelligence layer
+   - LangGraph-style conversation state machine.
+   - Decision engine for intent, emotion, objections, and stage.
+   - Prompt builder for Priya's response style and context.
+   - RAG for product/objection knowledge.
+   - Scoring engine for HOT/WARM/COLD classification.
+
+4. Voice layer
+   - Deepgram STT converts user speech to text.
+   - LLM generates Priya's response.
+   - Sarvam TTS converts Priya's response to audio.
+   - Dynamic TTS pace and temperature adapt to the conversation.
+
+5. Persistence layer
+   - PostgreSQL stores leads, calls, transcripts, summaries, scores, and metadata.
+   - Redis stores live-call short-term memory.
+   - S3 stores ordered call recording chunks.
+
+### System Design Diagram
+
+```mermaid
+flowchart TB
+  subgraph Frontend
+    Dashboard[RM Dashboard]
+    TestPage[Test Voice Page]
+  end
+
+  subgraph Backend
+    Express[Express REST API]
+    WS[Voice WebSocket Server]
+    RM[RM Lead Module]
+    ConvAPI[Conversation API]
+    Pipeline[Voice Pipeline Handler]
+    Graph[Conversation Graph]
+    Prompt[Prompt Builder]
+    Decision[Decision Engine]
+    Score[Scoring Engine]
+    Summary[Call Summary Service]
+  end
+
+  subgraph VoiceProviders
+    Deepgram[Deepgram STT]
+    Ollama[Ollama / LLM]
+    Sarvam[Sarvam TTS]
+  end
+
+  subgraph Storage
+    Postgres[(PostgreSQL)]
+    Redis[(Redis)]
+    S3[(AWS S3)]
+  end
+
+  Dashboard --> Express
+  TestPage --> WS
+
+  Express --> RM
+  Express --> ConvAPI
+  RM --> Postgres
+  ConvAPI --> Postgres
+  ConvAPI --> S3
+
+  WS --> Pipeline
+  Pipeline --> Deepgram
+  Pipeline --> Graph
+  Graph --> Decision
+  Graph --> Prompt
+  Graph --> Score
+  Graph --> Redis
+  Pipeline --> Ollama
+  Pipeline --> Sarvam
+  Pipeline --> Postgres
+  Pipeline --> S3
+  Pipeline --> Summary
+  Summary --> Postgres
+```
+
+### Main Data Flow
+
+```text
+Lead is created
+  -> saved in PostgreSQL
+  -> visible on RM dashboard
+
+Call starts
+  -> new Call row is created
+  -> previous call context is loaded if available
+  -> greeting is generated and spoken
+
+User speaks
+  -> browser sends AUDIO_CHUNK
+  -> Deepgram returns transcript
+  -> decision engine classifies the turn
+  -> LLM generates response
+  -> Sarvam returns audio
+  -> transcript is appended atomically
+  -> user and agent audio chunks are stored in order
+
+Call ends
+  -> call summary is generated
+  -> score and status are updated
+  -> recording chunks are available through signed URLs
+```
+
+### Key Design Rules
+
+- One `Lead` can have many `Call` records.
+- Each call keeps its own transcript, summary, score, and recording chunks.
+- The latest completed call provides compact context for the next call with the same lead.
+- PostgreSQL is the permanent source of truth.
+- Redis is only live-call working memory.
+- S3 stores audio; the database stores metadata and S3 keys.
+- The frontend receives signed recording URLs from the backend, not raw public files.
+
+For the full deep-dive, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Repository Structure
 
@@ -886,4 +1014,3 @@ apps/backend/src/services/conversation/RAG_INTEGRATION.md
 apps/backend/src/services/conversation/GUARDRAILS.md
 apps/backend/src/services/conversation/FILLER_AUDIO.md
 ```
-
