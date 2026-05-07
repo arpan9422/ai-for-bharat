@@ -81,12 +81,27 @@ export function buildPrompt(ctx: PromptContext): string {
 
   // Lead context
   if (ctx.leadProfile) {
-    const { name, occupation, background } = ctx.leadProfile;
+    const { name, occupation, background, previousConversation } = ctx.leadProfile;
     const parts2: string[] = [];
     if (name)       parts2.push(`Name: ${name}`);
     if (occupation) parts2.push(`Occupation: ${occupation}`);
     if (background) parts2.push(`Background: ${background}`);
     if (parts2.length) parts.push(`LEAD: ${parts2.join(' | ')}`);
+
+    if (previousConversation) {
+      const prev: string[] = [`Previous call date: ${previousConversation.date}`];
+      if (previousConversation.status) prev.push(`Previous status: ${previousConversation.status}`);
+      if (previousConversation.score != null) prev.push(`Previous score: ${previousConversation.score}/100`);
+      if (previousConversation.keyPoints.length) prev.push(`Discussed: ${previousConversation.keyPoints.join('; ')}`);
+      if (previousConversation.objectionsRaised.length) prev.push(`Objections: ${previousConversation.objectionsRaised.join('; ')}`);
+      if (previousConversation.statedIntent) prev.push(`Lead said: "${previousConversation.statedIntent}"`);
+      if (previousConversation.nextAction) prev.push(`Previous next action: ${previousConversation.nextAction}`);
+
+      parts.push(
+        `PREVIOUS CALL CONTEXT:\n${prev.join('\n')}\n` +
+        `Use this naturally. Do not pretend it happened today. Do not repeat the whole summary; reference only the most relevant point.`
+      );
+    }
   }
 
   // Conversation state

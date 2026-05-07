@@ -37,6 +37,7 @@ import {
   uploadCallAudio,
   uploadCallAudioChunks,
   updateLeadFromConversation,
+  getPreviousConversationContext,
   RecordingChunkInput,
   TranscriptMessage,
 } from './conversationStorage';
@@ -146,7 +147,14 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
         leadProfile
       );
 
-      const initialState = createConversationState(finalLeadId, conversation_id, leadProfile);
+      const previousConversation = await getPreviousConversationContext(finalLeadId, conversation_id);
+      const enrichedLeadProfile = {
+        ...leadProfile,
+        lead_id: finalLeadId,
+        previousConversation: previousConversation || undefined,
+      };
+
+      const initialState = createConversationState(finalLeadId, conversation_id, enrichedLeadProfile);
 
       // Run opening node to get greeting
       const greetingResult = await graph.invoke(initialState);

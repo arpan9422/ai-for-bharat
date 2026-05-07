@@ -51,6 +51,29 @@ export interface RecordingChunkInput {
   timestamp?: number;
 }
 
+export interface PreviousConversationContext {
+  callId: string;
+  date: string;
+  score?: number;
+  status?: string;
+  keyPoints: string[];
+  objectionsRaised: string[];
+  statedIntent?: string | null;
+  nextAction?: string;
+}
+
+function getSummaryObject(summary: unknown): Record<string, unknown> {
+  return summary && typeof summary === 'object' && !Array.isArray(summary)
+    ? summary as Record<string, unknown>
+    : {};
+}
+
+function getStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : [];
+}
+
 /**
  * Create a new call record in the database
  */
@@ -355,6 +378,58 @@ export async function getLeadCalls(leadId: string) {
   } catch (error) {
     console.error('[Storage] Error fetching lead calls:', error);
     return [];
+  }
+}
+
+/**
+ * Get compact context from the latest completed previous call for a lead.
+ * Excludes the current call so repeat calls can start with continuity.
+ */
+export async function getPreviousConversationContext(
+  leadId: string,
+  currentConversationId: string
+): Promise<PreviousConversationContext | null> {
+  try {
+    const previousCall = await prisma.call.findFirst({
+      where: {
+        leadId,
+        id: { not: currentConversationId },
+        endedAt: { not: null },
+      },
+      orderBy: { startedAt: 'desc' },
+      select: {
+        id: true,
+        score: true,
+        summary: true,
+        startedAt: true,
+      },
+    });
+
+    if (!previousCall) return null;
+
+    const summary = getSummaryObject(previousCall.summary);
+    const finalScore = typeof summary.finalScore === 'number' ? summary.finalScore : previousCall.score;
+    const status = typeof summary.status === 'string' ? summary.status : undefined;
+    const statedIntent = typeof summary.statedIntent === 'string' ? summary.statedIntent : null;
+    const nextAction = typeof summary.nextAction === 'string' ? summary.nextAction : undefined;
+
+    return {
+      callId: previousCall.id,
+      date: previousCall.startedAt.toLocaleDateString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }),
+      score: finalScore,
+      status,
+      keyPoints: getStringArray(summary.keyPoints).slice(0, 5),
+      objectionsRaised: getStringArray(summary.objectionsRaised).slice(0, 5),
+      statedIntent,
+      nextAction,
+    };
+  } catch (error) {
+    console.error('[Storage] Error fetching previous conversation context:', error);
+    return null;
   }
 }
 

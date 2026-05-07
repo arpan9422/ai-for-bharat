@@ -62,7 +62,29 @@ export async function getLeads(filter: LeadFilter) {
 export async function getLeadDetail(id: string) {
   const lead = await getLeadById(id);
   if (!lead) throw new Error('Lead not found');
-  return lead;
+
+  const calls = await Promise.all(
+    lead.calls.map(async call => {
+      const recordingChunks = getRecordingChunks(call.summary);
+      const signedRecordingChunks = await Promise.all(
+        recordingChunks.map(async chunk => ({
+          ...chunk,
+          url: await getRecordingUrl(chunk.key).catch(() => null),
+        }))
+      );
+
+      return {
+        ...call,
+        recordingChunks: signedRecordingChunks,
+        recordingChunkCount: signedRecordingChunks.length,
+        recordingUrl: call.recordingUrl
+          ? await getRecordingUrl(call.recordingUrl).catch(() => null)
+          : null,
+      };
+    })
+  );
+
+  return { ...lead, calls };
 }
 
 // ── Dashboard analytics ──────────────────────────────────────────────────────

@@ -39,6 +39,17 @@ export interface LeadProfile {
   language?: Language;
   /** RM-defined custom script (takes priority over templates) */
   callScript?: string;
+  /** Compact memory from the most recent prior call with this lead */
+  previousConversation?: {
+    callId: string;
+    date: string;
+    score?: number;
+    status?: string;
+    keyPoints: string[];
+    objectionsRaised: string[];
+    statedIntent?: string | null;
+    nextAction?: string;
+  };
 }
 
 /**

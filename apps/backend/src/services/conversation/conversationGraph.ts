@@ -100,10 +100,28 @@ async function openingNode(state: ConversationState): Promise<Partial<Conversati
   const name = state.lead_profile?.name;
   const occupation = state.lead_profile?.occupation?.toLowerCase() || '';
   const lang = state.lead_profile?.language || 'hinglish';
+  const previous = state.lead_profile?.previousConversation;
 
   let greeting: string;
 
-  if (lang === 'english') {
+  if (previous) {
+    const keyPoint = previous.keyPoints[0];
+    const intent = previous.statedIntent;
+
+    if (lang === 'english') {
+      greeting = name
+        ? `Hi ${name}, this is Priya from Rupeezy. We spoke on ${previous.date}${keyPoint ? ` about ${keyPoint}` : ''}${intent ? `, and you had said "${intent}"` : ''}. Is this a good time to continue from there?`
+        : `Hi, this is Priya from Rupeezy. We spoke on ${previous.date}${keyPoint ? ` about ${keyPoint}` : ''}. Is this a good time to continue from there?`;
+    } else if (lang === 'hindi') {
+      greeting = name
+        ? `Namaste ${name} ji, main Priya Rupeezy se bol rahi hoon. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}${intent ? `, aur aapne kaha tha "${intent}"` : ''}. Kya abhi wahi baat aage badha sakte hain?`
+        : `Namaste, main Priya Rupeezy se bol rahi hoon. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}. Kya abhi wahi baat aage badha sakte hain?`;
+    } else {
+      greeting = name
+        ? `Namaste ${name} ji, main Priya Rupeezy se. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}${intent ? `, aur aapne bola tha "${intent}"` : ''}. Kya abhi usi discussion ko continue kar sakte hain?`
+        : `Namaste, main Priya Rupeezy se. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}. Kya abhi usi discussion ko continue kar sakte hain?`;
+    }
+  } else if (lang === 'english') {
     greeting = name
       ? `Hi ${name}! This is Priya calling from Rupeezy. Hope I'm not catching you at a bad time — do you have 2 minutes?`
       : `Hi! This is Priya calling from Rupeezy. Hope I'm not catching you at a bad time — do you have 2 minutes?`;

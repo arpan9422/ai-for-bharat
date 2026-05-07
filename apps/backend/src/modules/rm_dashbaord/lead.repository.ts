@@ -67,6 +67,8 @@ export async function getLeadById(id: string) {
           startedAt: true,
           endedAt: true,
           summary: true,
+          recordingUrl: true,
+          recordingSize: true,
         },
       },
       whatsappLogs: { orderBy: { sentAt: 'desc' } },

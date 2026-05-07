@@ -26,14 +26,16 @@ function getRecordingChunks(summary: unknown): RecordingChunkManifest[] {
   const chunks = (summary as { recordingChunks?: unknown }).recordingChunks;
   if (!Array.isArray(chunks)) return [];
 
-  return chunks.filter((chunk): chunk is RecordingChunkManifest => {
-    return !!chunk
-      && typeof chunk === 'object'
-      && typeof (chunk as RecordingChunkManifest).index === 'number'
-      && typeof (chunk as RecordingChunkManifest).key === 'string'
-      && typeof (chunk as RecordingChunkManifest).sizeBytes === 'number'
-      && typeof (chunk as RecordingChunkManifest).mimeType === 'string';
-  });
+  return chunks
+    .filter((chunk): chunk is RecordingChunkManifest => {
+      return !!chunk
+        && typeof chunk === 'object'
+        && typeof (chunk as RecordingChunkManifest).index === 'number'
+        && typeof (chunk as RecordingChunkManifest).key === 'string'
+        && typeof (chunk as RecordingChunkManifest).sizeBytes === 'number'
+        && typeof (chunk as RecordingChunkManifest).mimeType === 'string';
+    })
+    .sort((a, b) => a.index - b.index);
 }
 
 /**
@@ -100,20 +102,36 @@ router.get('/lead/:leadId', async (req, res) => {
   try {
     const { leadId } = req.params;
     
-    const calls = await getLeadCalls(leadId);
+    const leadCalls = await getLeadCalls(leadId);
     
-    res.json({
-      lead_id: leadId,
-      total_calls: calls.length,
-      calls: calls.map(call => ({
+    const calls = await Promise.all(leadCalls.map(async call => {
+      const chunks = getRecordingChunks(call.summary);
+      const recordingChunks = await Promise.all(
+        chunks.map(async chunk => ({
+          ...chunk,
+          url: await getRecordingUrl(chunk.key).catch(() => null),
+        }))
+      );
+
+      return {
         conversation_id: call.id,
         score: call.score,
         duration: call.duration,
         language: call.language,
         summary: call.summary,
+        recording_url: call.recordingUrl ? await getRecordingUrl(call.recordingUrl).catch(() => null) : null,
+        recording_size: call.recordingSize,
+        recording_chunks: recordingChunks,
+        recording_chunk_count: recordingChunks.length,
         started_at: call.startedAt,
         ended_at: call.endedAt,
-      })),
+      };
+    }));
+
+    res.json({
+      lead_id: leadId,
+      total_calls: calls.length,
+      calls,
     });
   } catch (error: any) {
     console.error('Error fetching lead calls:', error);
