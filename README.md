@@ -127,6 +127,8 @@ The system is split into five layers:
 
 ### System Design Diagram
 
+![System Design](./system_design.png)
+
 ```mermaid
 flowchart TB
   subgraph Frontend
