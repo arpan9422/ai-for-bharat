@@ -1,4 +1,4 @@
-import { PrismaClient, LeadStatus } from '@prisma/client';
+import { Prisma, PrismaClient, LeadStatus } from '@prisma/client';
 import { LeadRow, LeadFilter } from './lead.model';
 
 const prisma = new PrismaClient();
@@ -32,17 +32,28 @@ export async function bulkUpsertLeads(leads: LeadRow[]) {
 
 // ── Paginated list with optional status filter ───────────────────────────────
 export async function listLeads(filter: LeadFilter) {
-  const { status, page, limit } = filter;
+  const { status, callStatus, page, limit, query } = filter;
   const skip = (page - 1) * limit;
 
-  const where = status ? { status: status as LeadStatus } : {};
+  const where: Prisma.LeadWhereInput = {
+    ...(status ? { status: status as LeadStatus } : {}),
+    ...(callStatus === 'uncalled' ? { calls: { none: {} } } : {}),
+    ...(callStatus === 'called' ? { calls: { some: {} } } : {}),
+    ...(query ? {
+      OR: [
+        { id: { contains: query, mode: 'insensitive' } },
+        { name: { contains: query, mode: 'insensitive' } },
+        { phone: { contains: query, mode: 'insensitive' } },
+      ],
+    } : {}),
+  };
 
   const [items, total] = await Promise.all([
     prisma.lead.findMany({
       where,
       skip,
       take: limit,
-      orderBy: { score: 'desc' },
+      orderBy: callStatus === 'uncalled' ? { createdAt: 'desc' } : { score: 'desc' },
       include: { _count: { select: { calls: true } } },
     }),
     prisma.lead.count({ where }),

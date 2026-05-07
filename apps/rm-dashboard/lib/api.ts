@@ -22,11 +22,15 @@ export function fetchAnalytics(): Promise<Analytics> {
 // Leads
 export function fetchLeads(params?: {
   status?: string;
+  callStatus?: 'called' | 'uncalled';
+  query?: string;
   page?: number;
   limit?: number;
 }): Promise<LeadsResponse> {
   const qs = new URLSearchParams();
   if (params?.status) qs.set('status', params.status);
+  if (params?.callStatus) qs.set('callStatus', params.callStatus);
+  if (params?.query) qs.set('query', params.query);
   if (params?.page) qs.set('page', String(params.page));
   if (params?.limit) qs.set('limit', String(params.limit));
   const query = qs.toString() ? `?${qs}` : '';
@@ -81,4 +85,22 @@ export function fetchConversation(conversationId: string) {
     started_at: string;
     ended_at?: string;
   }>(`/api/conversations/${conversationId}`);
+}
+
+export function fetchCallAudioChunks(callId: string) {
+  return apiFetch<{
+    callId: string;
+    leadId: string;
+    totalChunks: number;
+    chunks: Array<{
+      index: number;
+      key: string;
+      sizeBytes: number;
+      mimeType: string;
+      speaker?: 'agent' | 'user';
+      text?: string;
+      timestamp?: number;
+      url: string | null;
+    }>;
+  }>(`/api/rm/calls/${callId}/audio-chunks`);
 }

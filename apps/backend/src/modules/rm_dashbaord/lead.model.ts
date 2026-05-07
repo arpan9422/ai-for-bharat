@@ -17,6 +17,8 @@ export const BulkUploadSchema = z.object({
 
 export const LeadFilterSchema = z.object({
   status: z.enum(['HOT', 'WARM', 'COLD']).optional(),
+  callStatus: z.enum(['called', 'uncalled']).optional(),
+  query: z.string().trim().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(100).default(20),
 });

@@ -3,104 +3,139 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Voice Pipeline Test - LangGraph</title>
+  <title>Voice Pipeline Test</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      max-width: 900px;
-      margin: 50px auto;
-      padding: 20px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #333;
+      min-height: 100vh;
+      margin: 0;
+      padding: 32px;
+      background: #f4f6fb;
+      color: #111827;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .container {
-      background: white;
-      border-radius: 15px;
-      padding: 30px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      max-width: 960px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    .header {
+      padding: 28px 32px;
+      border-bottom: 1px solid #eef2f7;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .header-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #eef2ff;
+      color: #4f46e5;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     h1 {
-      color: #667eea;
-      text-align: center;
-      margin-bottom: 10px;
+      color: #111827;
+      margin: 0;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
     }
     .subtitle {
-      text-align: center;
-      color: #666;
-      margin-bottom: 30px;
+      color: #64748b;
+      margin: 6px 0 0;
       font-size: 14px;
+    }
+    .content {
+      padding: 24px 32px 30px;
     }
     .controls {
       display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 12px;
+      margin-bottom: 22px;
       flex-wrap: wrap;
     }
     button {
-      padding: 12px 24px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px 18px;
+      font-size: 14px;
+      border: 1px solid transparent;
+      border-radius: 10px;
       cursor: pointer;
-      transition: all 0.3s;
+      transition: background 0.2s, border-color 0.2s, transform 0.2s, box-shadow 0.2s;
       font-weight: 600;
+    }
+    button svg {
+      width: 17px;
+      height: 17px;
     }
     button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
     #startCall {
-      background: #10b981;
+      background: #16a34a;
       color: white;
+      box-shadow: 0 8px 18px rgba(22, 163, 74, 0.2);
     }
     #startCall:hover:not(:disabled) {
-      background: #059669;
-      transform: translateY(-2px);
-    }
-    #startRecording {
-      background: #3b82f6;
-      color: white;
-    }
-    #startRecording:hover:not(:disabled) {
-      background: #2563eb;
-      transform: translateY(-2px);
-    }
-    #stopRecording {
-      background: #ef4444;
-      color: white;
-    }
-    #stopRecording:hover:not(:disabled) {
-      background: #dc2626;
+      background: #15803d;
       transform: translateY(-2px);
     }
     #endCall {
-      background: #f59e0b;
+      background: #dc2626;
       color: white;
+      box-shadow: 0 8px 18px rgba(220, 38, 38, 0.2);
     }
     #endCall:hover:not(:disabled) {
-      background: #d97706;
+      background: #b91c1c;
       transform: translateY(-2px);
     }
     .status {
-      padding: 15px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 13px 14px;
+      border-radius: 12px;
+      margin-bottom: 18px;
+      font-weight: 600;
+      font-size: 14px;
+      border: 1px solid transparent;
+    }
+    .status svg {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
     }
     .status.connected {
-      background: #d1fae5;
-      color: #065f46;
-      border-left: 4px solid #10b981;
+      background: #ecfdf5;
+      color: #047857;
+      border-color: #bbf7d0;
     }
     .status.disconnected {
-      background: #fee2e2;
-      color: #991b1b;
-      border-left: 4px solid #ef4444;
+      background: #f8fafc;
+      color: #475569;
+      border-color: #e2e8f0;
     }
     .status.recording {
-      background: #dbeafe;
-      color: #1e40af;
-      border-left: 4px solid #3b82f6;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border-color: #bfdbfe;
       animation: pulse 2s infinite;
     }
     @keyframes pulse {
@@ -108,138 +143,233 @@
       50% { opacity: 0.7; }
     }
     .log {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 15px;
-      height: 400px;
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 14px;
+      padding: 14px;
+      height: 390px;
       overflow-y: auto;
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
       margin-bottom: 20px;
     }
     .log-entry {
-      margin-bottom: 8px;
-      padding: 8px;
-      border-radius: 4px;
+      margin-bottom: 7px;
+      padding: 8px 10px;
+      border-radius: 8px;
       line-height: 1.5;
     }
     .log-entry.greeting {
-      background: #fef3c7;
-      border-left: 3px solid #f59e0b;
+      background: rgba(79, 70, 229, 0.18);
+      border-left: 3px solid #818cf8;
+      color: #e0e7ff;
     }
     .log-entry.transcript {
-      background: #dbeafe;
-      border-left: 3px solid #3b82f6;
+      background: rgba(14, 165, 233, 0.16);
+      border-left: 3px solid #38bdf8;
+      color: #e0f2fe;
     }
     .log-entry.audio {
-      background: #d1fae5;
-      border-left: 3px solid #10b981;
+      background: rgba(22, 163, 74, 0.16);
+      border-left: 3px solid #4ade80;
+      color: #dcfce7;
     }
     .log-entry.error {
-      background: #fee2e2;
-      border-left: 3px solid #ef4444;
-      color: #991b1b;
+      background: rgba(220, 38, 38, 0.18);
+      border-left: 3px solid #f87171;
+      color: #fee2e2;
     }
     .log-entry.system {
-      background: #f3f4f6;
-      border-left: 3px solid #6b7280;
-      color: #4b5563;
+      background: rgba(148, 163, 184, 0.12);
+      border-left: 3px solid #64748b;
+      color: #cbd5e1;
     }
     .lead-profile {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 15px;
-      margin-bottom: 20px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 18px;
     }
     .lead-profile h3 {
-      margin-top: 0;
-      color: #667eea;
+      margin: 0 0 12px;
+      color: #111827;
       font-size: 16px;
     }
     .form-group {
-      margin-bottom: 12px;
+      margin-bottom: 0;
+      position: relative;
     }
     .form-group label {
       display: block;
-      margin-bottom: 5px;
-      font-weight: 500;
+      margin-bottom: 7px;
+      font-weight: 700;
       font-size: 14px;
-      color: #374151;
+      color: #334155;
     }
-    .form-group input, .form-group select {
+    .input-wrap {
+      position: relative;
+    }
+    .input-wrap svg {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      color: #94a3b8;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    .form-group input {
       width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
+      padding: 11px 12px 11px 42px;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
       font-size: 14px;
+      outline: none;
+      background: #ffffff;
+      color: #111827;
     }
-    .form-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
+    .form-group input:focus {
+      border-color: #4f46e5;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+    .field-help {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 12px;
+    }
+    .selected-lead {
+      margin-top: 10px;
+      min-height: 20px;
+      color: #047857;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .suggestions {
+      position: absolute;
+      z-index: 10;
+      left: 0;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #ffffff;
+      border: 1px solid #dbe3ef;
+      border-radius: 12px;
+      box-shadow: 0 16px 35px rgba(15, 23, 42, 0.16);
+      overflow: hidden;
+      display: none;
+    }
+    .suggestions.open {
+      display: block;
+    }
+    .suggestion {
+      width: 100%;
+      padding: 11px 12px;
+      border: 0;
+      background: #ffffff;
+      color: #111827;
+      text-align: left;
+      border-radius: 0;
+      box-shadow: none;
+      display: block;
+      min-height: auto;
+    }
+    .suggestion:hover {
+      background: #f1f5f9;
+      transform: none;
+    }
+    .suggestion-id {
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      color: #1e293b;
+    }
+    .suggestion-meta {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+    }
+    .footer-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #64748b;
+      font-size: 12px;
+      text-align: center;
+    }
+    .footer-note svg {
+      width: 15px;
+      height: 15px;
+      color: #94a3b8;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🎙️ Voice Pipeline Test</h1>
-    <p class="subtitle">LangGraph-based Conversation Pipeline</p>
-
-    <div class="lead-profile">
-      <h3>Lead Profile (Optional)</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="leadId">Lead ID:</label>
-          <input type="text" id="leadId" placeholder="lead-12345" value="">
+    <div class="header">
+      <div class="header-top">
+        <div class="header-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.61a2 2 0 0 1-.45 2.11L8.09 9.64a16 16 0 0 0 6.27 6.27l1.2-1.2a2 2 0 0 1 2.11-.45c.84.3 1.71.51 2.61.63A2 2 0 0 1 22 16.92Z"/>
+          </svg>
         </div>
-        <div class="form-group">
-          <label for="leadName">Name:</label>
-          <input type="text" id="leadName" placeholder="Rajesh Kumar">
+        <div>
+          <h1>Voice Pipeline Test Console</h1>
+          <p class="subtitle">Start a live pipeline call using an existing RM dashboard lead.</p>
         </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="leadOccupation">Occupation:</label>
-          <select id="leadOccupation">
-            <option value="">Select...</option>
-            <option value="MFD">MFD</option>
-            <option value="distributor">Distributor</option>
-            <option value="insurance agent">Insurance Agent</option>
-            <option value="sub-broker">Sub-Broker</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="leadLanguage">Language:</label>
-          <select id="leadLanguage">
-            <option value="hinglish">Hinglish</option>
-            <option value="hindi">Hindi</option>
-            <option value="english">English</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="leadBackground">Background:</label>
-        <input type="text" id="leadBackground" placeholder="Financial services">
       </div>
     </div>
 
-    <div id="status" class="status disconnected">
-      ⚫ Disconnected
-    </div>
+    <div class="content">
+      <div class="lead-profile">
+        <h3>Select Lead</h3>
+        <div class="form-group">
+          <label for="leadId">Lead ID</label>
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M15 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/>
+              <path d="M17 21a6 6 0 0 0-12 0"/>
+              <path d="M19 8v6"/>
+              <path d="M22 11h-6"/>
+            </svg>
+            <input type="text" id="leadId" placeholder="Type lead ID, name, or phone" autocomplete="off" value="">
+            <div id="leadSuggestions" class="suggestions"></div>
+          </div>
+          <div class="field-help">Suggestions appear from existing RM dashboard leads as you type.</div>
+          <div id="selectedLead" class="selected-lead"></div>
+        </div>
+      </div>
 
-    <div class="controls">
-      <button id="startCall">📞 Start Call</button>
-      <button id="endCall" disabled>📴 End Call</button>
-    </div>
+      <div id="status" class="status disconnected"></div>
 
-    <div class="log" id="log"></div>
+      <div class="controls">
+        <button id="startCall">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.61a2 2 0 0 1-.45 2.11L8.09 9.64a16 16 0 0 0 6.27 6.27l1.2-1.2a2 2 0 0 1 2.11-.45c.84.3 1.71.51 2.61.63A2 2 0 0 1 22 16.92Z"/>
+          </svg>
+          Start Call
+        </button>
+        <button id="endCall" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15.46 16.65 11a2 2 0 0 0-2.83 0l-1.07 1.07a14.5 14.5 0 0 1-1.5 0L10.18 11a2 2 0 0 0-2.83 0L3 15.46"/>
+            <path d="M5 19h14"/>
+          </svg>
+          End Call
+        </button>
+      </div>
 
-    <div style="text-align: center; color: #6b7280; font-size: 12px;">
-      <p>WebSocket: ws://localhost:4000/ws/voice-pipeline</p>
-      <p>Make sure your microphone is enabled and the backend is running</p>
+      <div class="log" id="log"></div>
+
+      <div class="footer-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>
+          <path d="m9 12 2 2 4-4"/>
+        </svg>
+        <span>WebSocket: ws://localhost:4000/ws/voice-pipeline. Ensure backend and microphone permissions are active.</span>
+      </div>
     </div>
   </div>
 
@@ -253,10 +383,15 @@
     let callActive = false;
     let mediaStream = null;
     let mixedChunks = [];            // accumulates mixed recording chunks
+    let endingCall = false;
+    let leadsCache = [];
+    let selectedLead = null;
 
     // ── Sequential audio queue — plays agent audio and routes it into the mix ──
     const audioQueue = [];
     let audioPlaying = false;
+    let currentAudioSource = null;
+    let currentAudioElement = null;
 
     function enqueueAudio(audioData, mimeType) {
       audioQueue.push({ audioData, mimeType });
@@ -276,23 +411,25 @@
         const decoded = await audioContext.decodeAudioData(arrayBuf);
 
         // Play through speakers AND route into the mixed recording
-        const src = audioContext.createBufferSource();
-        src.buffer = decoded;
-        src.connect(audioContext.destination);       // → speakers (user hears agent)
-        if (mixedDest) src.connect(mixedDest);       // → mixed recording
+        currentAudioSource = audioContext.createBufferSource();
+        currentAudioSource.buffer = decoded;
+        currentAudioSource.connect(audioContext.destination);       // → speakers (user hears agent)
+        if (mixedDest) currentAudioSource.connect(mixedDest);       // → mixed recording
 
-        src.onended = () => {
+        currentAudioSource.onended = () => {
+          currentAudioSource = null;
           audioPlaying = false;
           drainAudioQueue();
         };
-        src.start();
+        currentAudioSource.start();
       } catch (err) {
         // Fallback: plain Audio element (no mixing into recording)
         const blob = new Blob([audioData], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        audio.onended = () => { URL.revokeObjectURL(url); audioPlaying = false; drainAudioQueue(); };
-        audio.onerror = () => { URL.revokeObjectURL(url); audioPlaying = false; drainAudioQueue(); };
+        currentAudioElement = audio;
+        audio.onended = () => { URL.revokeObjectURL(url); currentAudioElement = null; audioPlaying = false; drainAudioQueue(); };
+        audio.onerror = () => { URL.revokeObjectURL(url); currentAudioElement = null; audioPlaying = false; drainAudioQueue(); };
         audio.play().catch(() => { audioPlaying = false; drainAudioQueue(); });
       }
     }
@@ -301,6 +438,15 @@
     const logDiv = document.getElementById('log');
     const startCallBtn = document.getElementById('startCall');
     const endCallBtn = document.getElementById('endCall');
+    const leadInput = document.getElementById('leadId');
+    const leadSuggestions = document.getElementById('leadSuggestions');
+    const selectedLeadDiv = document.getElementById('selectedLead');
+
+    const icons = {
+      disconnected: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18.36 5.64a9 9 0 0 1 0 12.72"/><path d="M5.64 18.36a9 9 0 0 1 0-12.72"/><path d="m2 2 20 20"/></svg>',
+      connected: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.5 16.05a6 6 0 0 1 7 0"/><path d="M12 20h.01"/></svg>',
+      recording: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/><path d="M8 22h8"/></svg>',
+    };
 
     function log(message, type = 'system') {
       const entry = document.createElement('div');
@@ -312,37 +458,112 @@
     }
 
     function updateStatus(text, className) {
-      statusDiv.textContent = text;
+      statusDiv.innerHTML = `${icons[className] || icons.disconnected}<span>${text}</span>`;
       statusDiv.className = `status ${className}`;
     }
 
-    function getLeadProfile() {
-      const leadId = document.getElementById('leadId').value.trim();
-      const name = document.getElementById('leadName').value.trim();
-      const occupation = document.getElementById('leadOccupation').value;
-      const language = document.getElementById('leadLanguage').value;
-      const background = document.getElementById('leadBackground').value.trim();
+    async function loadLeads(query = '') {
+      if (!query && leadsCache.length > 0) return leadsCache;
+      const params = new URLSearchParams({ limit: '8' });
+      if (query) params.set('query', query);
+      const res = await fetch(`/api/rm/leads?${params}`);
+      if (!res.ok) throw new Error('Unable to load leads');
+      const data = await res.json();
+      const leads = Array.isArray(data.items) ? data.items : [];
+      if (!query) leadsCache = leads;
+      return leads;
+    }
 
-      const profile = {
-        lead_id: leadId || undefined,
-        name: name || undefined,
-        occupation: occupation || undefined,
-        language: language || undefined,
-        background: background || undefined,
-      };
+    function describeLead(lead) {
+      return [lead.name, lead.phone, lead.status].filter(Boolean).join(' · ');
+    }
 
-      // Return null if all fields are empty
-      if (!leadId && !name && !occupation && !background) {
-        return { profile: null, lead_id: null };
+    function renderLeadSuggestions(leads) {
+      leadSuggestions.innerHTML = '';
+      if (leads.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'suggestion';
+        empty.innerHTML = '<span class="suggestion-id">No matching leads</span><span class="suggestion-meta">Create the lead in the RM dashboard first.</span>';
+        leadSuggestions.appendChild(empty);
+        leadSuggestions.classList.add('open');
+        return;
       }
 
-      return { profile, lead_id: leadId || null };
+      leads.slice(0, 8).forEach(lead => {
+        const option = document.createElement('button');
+        option.type = 'button';
+        option.className = 'suggestion';
+        option.innerHTML = `<span class="suggestion-id">${lead.id}</span><span class="suggestion-meta">${describeLead(lead) || 'Existing lead'}</span>`;
+        option.addEventListener('mousedown', event => {
+          event.preventDefault();
+          selectLead(lead);
+        });
+        leadSuggestions.appendChild(option);
+      });
+      leadSuggestions.classList.add('open');
+    }
+
+    async function updateLeadSuggestions() {
+      const query = leadInput.value.trim().toLowerCase();
+      selectedLead = selectedLead && selectedLead.id === leadInput.value.trim() ? selectedLead : null;
+      selectedLeadDiv.textContent = selectedLead ? `Selected: ${describeLead(selectedLead)}` : '';
+
+      if (query.length < 1) {
+        leadSuggestions.classList.remove('open');
+        return;
+      }
+
+      try {
+        const leads = await loadLeads(query);
+        renderLeadSuggestions(leads);
+      } catch (error) {
+        leadSuggestions.innerHTML = '<div class="suggestion"><span class="suggestion-id">Could not load leads</span><span class="suggestion-meta">Check backend connection and try again.</span></div>';
+        leadSuggestions.classList.add('open');
+      }
+    }
+
+    function selectLead(lead) {
+      selectedLead = lead;
+      leadInput.value = lead.id;
+      selectedLeadDiv.textContent = `Selected: ${describeLead(lead)}`;
+      leadSuggestions.classList.remove('open');
+    }
+
+    async function validateLeadId(leadId) {
+      if (selectedLead && selectedLead.id === leadId) return selectedLead;
+      const res = await fetch(`/api/rm/leads/${encodeURIComponent(leadId)}`);
+      if (!res.ok) throw new Error('Lead ID was not found in the RM dashboard.');
+      selectedLead = await res.json();
+      selectedLeadDiv.textContent = `Selected: ${describeLead(selectedLead)}`;
+      return selectedLead;
+    }
+
+    function getLeadProfile() {
+      const leadId = leadInput.value.trim();
+      return { lead_id: leadId || null };
+    }
+
+    function stopAgentAudio() {
+      audioQueue.length = 0;
+      audioPlaying = false;
+
+      if (currentAudioSource) {
+        try { currentAudioSource.stop(); } catch (_) {}
+        try { currentAudioSource.disconnect(); } catch (_) {}
+        currentAudioSource = null;
+      }
+
+      if (currentAudioElement) {
+        currentAudioElement.pause();
+        currentAudioElement.src = '';
+        currentAudioElement = null;
+      }
     }
 
     async function startRecording() {
       try {
         mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        log('🎤 Microphone access granted', 'system');
+        log('Microphone access granted', 'system');
 
         // ── Set up Web Audio mixing ──
         if (!audioContext) audioContext = new AudioContext();
@@ -364,9 +585,10 @@
         // ── STT recorder — sends mic audio to Deepgram ──
         mediaRecorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm;codecs=opus' });
         mediaRecorder.ondataavailable = (event) => {
-          if (event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
+          if (!endingCall && event.data.size > 0 && ws && ws.readyState === WebSocket.OPEN) {
             const reader = new FileReader();
             reader.onload = () => {
+              if (endingCall || !ws || ws.readyState !== WebSocket.OPEN) return;
               const base64 = btoa(String.fromCharCode(...new Uint8Array(reader.result)));
               ws.send(JSON.stringify({ type: 'AUDIO_CHUNK', payload: base64 }));
             };
@@ -375,11 +597,11 @@
         };
         mediaRecorder.start(100);
 
-        log('🎙️ Recording started - speak now!', 'system');
-        updateStatus('🔴 Recording...', 'recording');
+        log('Recording started. Speak now.', 'system');
+        updateStatus('Recording', 'recording');
 
       } catch (error) {
-        log(`❌ Microphone error: ${error.message}`, 'error');
+        log(`Microphone error: ${error.message}`, 'error');
       }
     }
 
@@ -388,105 +610,107 @@
       if (mixedRecorder && mixedRecorder.state === 'recording') mixedRecorder.stop();
       if (micSource) { micSource.disconnect(); micSource = null; }
       if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
-      log('⏹️ Recording stopped', 'system');
-    }
-
-    async function uploadMixedRecording() {
-      if (!mixedChunks.length || !ws || ws.readyState !== WebSocket.OPEN) return;
-      try {
-        const blob = new Blob(mixedChunks, { type: 'audio/webm' });
-        const arrayBuf = await blob.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuf)));
-        ws.send(JSON.stringify({ type: 'MIXED_RECORDING', payload: base64 }));
-        log('📼 Mixed recording uploaded', 'system');
-      } catch (e) {
-        log('⚠️ Could not upload mixed recording: ' + e.message, 'system');
-      }
+      mediaRecorder = null;
+      mixedRecorder = null;
+      log('Recording stopped', 'system');
     }
 
     startCallBtn.addEventListener('click', async () => {
       try {
+        const { lead_id } = getLeadProfile();
+        if (!lead_id) {
+          log('Lead ID is required. Add the lead in RM dashboard first, then select it here.', 'error');
+          leadInput.focus();
+          return;
+        }
+
+        await validateLeadId(lead_id);
         log('Connecting to WebSocket...', 'system');
         ws = new WebSocket('ws://localhost:4000/ws/voice-pipeline');
 
         ws.onopen = async () => {
-          log('✅ WebSocket connected', 'system');
-          updateStatus('🟢 Connected', 'connected');
+          log('WebSocket connected', 'system');
+          updateStatus('Connected', 'connected');
 
           // Send START_CALL message
-          const { profile, lead_id } = getLeadProfile();
-          const payload = {};
-          if (profile) payload.leadProfile = profile;
-          if (lead_id) payload.lead_id = lead_id;
-          
           ws.send(JSON.stringify({
             type: 'START_CALL',
-            payload
+            payload: { lead_id }
           }));
-          log('📞 Call started' + (lead_id ? ` for lead: ${lead_id}` : profile ? ' with lead profile' : ''), 'system');
+          log(`Call started for lead: ${lead_id}`, 'system');
 
           callActive = true;
+          endingCall = false;
           startCallBtn.disabled = true;
           endCallBtn.disabled = false;
         };
 
         ws.onmessage = async (event) => {
           const msg = JSON.parse(event.data);
+
+          if (endingCall && ['GREETING', 'FILLER_AUDIO', 'AUDIO_PLAY', 'TURN_DONE'].includes(msg.type)) {
+            return;
+          }
           
           if (msg.type === 'GREETING') {
-            log(`🎉 Greeting: ${msg.payload}`, 'greeting');
+            log(`Greeting: ${msg.payload}`, 'greeting');
             if (!mediaRecorder || mediaRecorder.state !== 'recording') {
               await startRecording();
             }
           }
           else if (msg.type === 'TRANSCRIPT') {
-            log(`📝 Transcript: ${msg.payload}`, 'transcript');
+            log(`Transcript: ${msg.payload}`, 'transcript');
           }
           else if (msg.type === 'FILLER_AUDIO') {
             const audioData = Uint8Array.from(atob(msg.payload), c => c.charCodeAt(0));
             enqueueAudio(audioData, 'audio/wav');
           }
           else if (msg.type === 'AUDIO_PLAY') {
-            log('🔊 Audio chunk received', 'audio');
+            log('Audio chunk received', 'audio');
             const audioData = Uint8Array.from(atob(msg.payload), c => c.charCodeAt(0));
             enqueueAudio(audioData, 'audio/mpeg');
           }
           else if (msg.type === 'TURN_DONE') {
-            log('✅ Turn complete', 'system');
+            log('Turn complete', 'system');
           }
           else if (msg.type === 'HANDOFF_REQUIRED') {
-            log(`🚨 HANDOFF TO RM - Reason: ${msg.payload.reason}`, 'error');
-            log(`📊 Score: ${msg.payload.score}, Engagement: ${msg.payload.engagement}`, 'system');
+            log(`Handoff to RM. Reason: ${msg.payload.reason}`, 'error');
+            log(`Score: ${msg.payload.score}, Engagement: ${msg.payload.engagement}`, 'system');
           }
           else if (msg.type === 'CALL_ENDING') {
-            log(`📴 Call ending - Reason: ${msg.payload.reason}`, 'system');
-            log(`📊 Final Score: ${msg.payload.score}`, 'system');
+            log(`Call ending. Reason: ${msg.payload.reason}`, 'system');
+            log(`Final score: ${msg.payload.score}`, 'system');
           }
           else if (msg.type === 'ERROR') {
-            log(`❌ Error: ${msg.payload}`, 'error');
+            log(`Error: ${msg.payload}`, 'error');
+            if (String(msg.payload).includes('Lead not found') || String(msg.payload).includes('Lead ID is required')) {
+              callActive = false;
+              endingCall = false;
+              resetUI();
+            }
           }
           else if (msg.type === 'CALL_ENDED') {
-            log('📴 Call ended', 'system');
+            log('Call ended', 'system');
             if (msg.payload) {
-              log(`📊 Stats - Turns: ${msg.payload.turn_count}, Score: ${msg.payload.final_score}, Engagement: ${msg.payload.engagement}`, 'system');
+              log(`Stats - Turns: ${msg.payload.turn_count}, Score: ${msg.payload.final_score}, Engagement: ${msg.payload.engagement}`, 'system');
               if (msg.payload.handoff_occurred) {
-                log('🚨 Handoff occurred during call', 'system');
+                log('Handoff occurred during call', 'system');
               }
               if (msg.payload.summary) {
                 const s = msg.payload.summary;
-                log(`🏷️ Status: ${s.status} | Next Action: ${s.nextAction}`, 'system');
+                log(`Status: ${s.status} | Next action: ${s.nextAction}`, 'system');
                 if (s.keyPoints && s.keyPoints.length > 0) {
-                  log('📋 Key Points:', 'system');
-                  s.keyPoints.forEach(pt => log(`  • ${pt}`, 'system'));
+                  log('Key points:', 'system');
+                  s.keyPoints.forEach(pt => log(`- ${pt}`, 'system'));
                 }
                 if (s.objectionsRaised && s.objectionsRaised.length > 0) {
-                  log(`⚠️ Objections: ${s.objectionsRaised.join(', ')}`, 'system');
+                  log(`Objections: ${s.objectionsRaised.join(', ')}`, 'system');
                 }
                 if (s.statedIntent) {
-                  log(`💬 Stated Intent: "${s.statedIntent}"`, 'transcript');
+                  log(`Stated intent: "${s.statedIntent}"`, 'transcript');
                 }
                 if (s.rmOpener) {
-                  log(`🎯 RM Opener: "${s.rmOpener}"`, 'greeting');
+                  log(`RM opener: "${s.rmOpener}"`, 'greeting');
                 }
               }
             }
@@ -496,43 +720,60 @@
         };
 
         ws.onerror = (error) => {
-          log(`❌ WebSocket error: ${error}`, 'error');
-          updateStatus('🔴 Error', 'disconnected');
+          log(`WebSocket error: ${error}`, 'error');
+          updateStatus('Connection error', 'disconnected');
+          endingCall = false;
         };
 
         ws.onclose = () => {
           log('WebSocket disconnected', 'system');
-          updateStatus('⚫ Disconnected', 'disconnected');
+          updateStatus('Disconnected', 'disconnected');
           callActive = false;
+          endingCall = false;
           resetUI();
         };
 
       } catch (error) {
-        log(`❌ Failed to connect: ${error.message}`, 'error');
+        log(`Failed to start call: ${error.message}`, 'error');
       }
     });
 
     endCallBtn.addEventListener('click', async () => {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        // Stop recording first, wait for final chunks, then upload mixed recording
+        endingCall = true;
+        callActive = false;
+        startCallBtn.disabled = false;
+        endCallBtn.disabled = true;
+        updateStatus('Call ended', 'disconnected');
+        stopAgentAudio();
         stopRecording();
-        await new Promise(r => setTimeout(r, 600)); // wait for final recorder chunks
-        await uploadMixedRecording();
+        mixedChunks = [];
         ws.send(JSON.stringify({ type: 'END_CALL' }));
-        log('📴 Ending call...', 'system');
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) ws.close();
+        }, 150);
+        log('Call ended. Audio stopped immediately.', 'system');
       }
     });
 
     function resetUI() {
       startCallBtn.disabled = false;
       endCallBtn.disabled = true;
-      audioQueue.length = 0;
-      audioPlaying = false;
+      stopAgentAudio();
       mixedChunks = [];
       mixedDest = null;
       stopRecording();
-      updateStatus('⚫ Disconnected', 'disconnected');
+      updateStatus('Disconnected', 'disconnected');
     }
+
+    leadInput.addEventListener('input', updateLeadSuggestions);
+    leadInput.addEventListener('focus', updateLeadSuggestions);
+    document.addEventListener('click', event => {
+      if (!leadSuggestions.contains(event.target) && event.target !== leadInput) {
+        leadSuggestions.classList.remove('open');
+      }
+    });
+    updateStatus('Disconnected', 'disconnected');
   </script>
 </body>
 </html>

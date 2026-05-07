@@ -5,7 +5,7 @@
  * It integrates STT (Deepgram) → LangGraph Pipeline → TTS (Sarvam)
  * 
  * Protocol:
- *   Client → { type: "START_CALL", payload: { leadProfile?: LeadProfile } }
+ *   Client → { type: "START_CALL", payload: { lead_id: string } }
  *   Client → { type: "AUDIO_CHUNK", payload: <base64 webm/opus> }
  *   Client → { type: "END_TURN" }
  *   Client → { type: "END_CALL" }
@@ -120,6 +120,7 @@ interface SessionData {
 
 export function setupVoicePipelineConnection(ws: WebSocket) {
   let session: SessionData | null = null;
+  let isFinalizing = false;
 
   const send = (obj: object) => {
     if (ws.readyState === WebSocket.OPEN) {
@@ -133,14 +134,18 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
   const startCall = async (leadProfile?: LeadProfile, lead_id?: string) => {
     try {
       console.log('[VoicePipeline] Starting new call session');
-      
-      const requestedLeadId = lead_id || leadProfile?.lead_id || leadProfile?.phone || uuidv4();
+
+      const requestedLeadId = lead_id || leadProfile?.lead_id;
+      if (!requestedLeadId) {
+        throw new Error('Lead ID is required. Create/select a lead in the RM dashboard first.');
+      }
+
       const conversation_id = uuidv4();
       const graph = buildConversationGraph();
       const prepGraph = buildPrepGraph();
 
       // Create call record in database
-      const { leadId: finalLeadId } = await createCallRecord(
+      const { leadId: finalLeadId, leadProfile: dbLeadProfile } = await createCallRecord(
         requestedLeadId,
         conversation_id,
         leadProfile?.language || 'hinglish',
@@ -149,6 +154,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
       const previousConversation = await getPreviousConversationContext(finalLeadId, conversation_id);
       const enrichedLeadProfile = {
+        ...dbLeadProfile,
         ...leadProfile,
         lead_id: finalLeadId,
         previousConversation: previousConversation || undefined,
@@ -575,6 +581,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
       // END_CALL: Cleanup session
       if (msg.type === 'END_CALL') {
+        if (isFinalizing) return;
+        isFinalizing = true;
         console.log('[VoicePipeline] Ending call session:', session.conversation_id);
         
         if (session.deepgramConn) {
@@ -620,10 +628,12 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
           }
         });
         session = null;
+        isFinalizing = false;
       }
 
     } catch (error: any) {
       console.error('[VoicePipeline] Message handling error:', error);
+      isFinalizing = false;
       send({ type: 'ERROR', payload: error.message || 'Message handling error' });
     }
   });
@@ -631,7 +641,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
   ws.on('close', async () => {
     console.log('[VoicePipeline] Client disconnected');
     
-    if (session) {
+    if (session && !isFinalizing) {
+      isFinalizing = true;
       await finalizeCallRecord(
         session.conversation_id,
         session.conversationState,
@@ -652,6 +663,7 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
     }
     
     session = null;
+    isFinalizing = false;
   });
 
   /**
@@ -660,7 +672,8 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
   ws.on('error', async (error) => {
     console.error('[VoicePipeline] WebSocket error:', error);
     
-    if (session) {
+    if (session && !isFinalizing) {
+      isFinalizing = true;
       // Finalize call on error
       await finalizeCallRecord(
         session.conversation_id,
@@ -674,5 +687,6 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
     }
     
     session = null;
+    isFinalizing = false;
   });
 }

@@ -7,6 +7,7 @@ import { LeadDetail, Call } from '@/lib/types';
 import StatusBadge from '@/components/StatusBadge';
 import ScoreBar from '@/components/ScoreBar';
 import TranscriptViewer from '@/components/TranscriptViewer';
+import ConversationPlayer from '@/components/ConversationPlayer';
 import {
   formatDate, formatDuration, languageLabel,
   occupationLabel, scoreColor,
@@ -143,15 +144,32 @@ export default function LeadDetailPage() {
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void Promise.resolve().then(() => load());
+  }, [load]);
 
   useEffect(() => {
     if (!selectedCall) return;
-    setCallLoading(true);
-    fetchConversation(selectedCall)
-      .then(setCallDetail)
-      .catch(() => setCallDetail(null))
-      .finally(() => setCallLoading(false));
+    let cancelled = false;
+
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setCallLoading(true);
+      fetchConversation(selectedCall)
+        .then(data => {
+          if (!cancelled) setCallDetail(data);
+        })
+        .catch(() => {
+          if (!cancelled) setCallDetail(null);
+        })
+        .finally(() => {
+          if (!cancelled) setCallLoading(false);
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCall]);
 
   if (loading) {
@@ -311,39 +329,17 @@ export default function LeadDetailPage() {
               <>
                 {summary && <CallSummaryPanel summary={summary} />}
 
-                {/* Single call recording — agent voice (Priya) */}
+                {/* Full call recording from ordered audio chunks */}
                 <div className="mb-5">
-                  {callDetail.recording_chunks && callDetail.recording_chunks.length > 0 ? (
-                    <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-base">ðŸŽ™</span>
-                        <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Agent Voice Chunks (Priya)</p>
-                      </div>
-                      <p className="text-xs text-indigo-500 mb-3">Each generated response is saved separately in this call&apos;s recording folder</p>
-                      <div className="space-y-3">
-                        {callDetail.recording_chunks.map(chunk => (
-                          <div key={chunk.key}>
-                            <p className="text-xs font-semibold text-indigo-700 mb-1">
-                              Recording {chunk.index}{chunk.speaker ? ` · ${chunk.speaker === 'agent' ? 'Priya' : 'User'}` : ''}
-                            </p>
-                            {chunk.url ? (
-                              <audio controls className="w-full" src={chunk.url}>
-                                Your browser does not support audio playback.
-                              </audio>
-                            ) : (
-                              <p className="text-xs text-indigo-400">Signed URL unavailable</p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                  {selectedCall ? (
+                    <ConversationPlayer callId={selectedCall} />
                   ) : callDetail?.recording_url ? (
                     <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-200">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-base">🎙</span>
-                        <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Agent Voice Recording (Priya)</p>
+                        <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Call Recording</p>
                       </div>
-                      <p className="text-xs text-indigo-500 mb-3">Everything Priya said during this call, in order</p>
+                      <p className="text-xs text-indigo-500 mb-3">Full recording for this call</p>
                       <audio controls className="w-full" src={callDetail.recording_url}>
                         Your browser does not support audio playback.
                       </audio>

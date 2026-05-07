@@ -11,7 +11,7 @@ import { PrismaClient } from '@prisma/client';
 import { uploadCallRecording, uploadCallRecordingChunk } from '../storage/s3Service';
 import { ConversationState } from './conversationGraph';
 import { generateCallSummary, RichCallSummary } from './callSummary';
-import { LeadProfile } from './startingScript';
+import { Language, LeadProfile } from './startingScript';
 
 const prisma = new PrismaClient();
 
@@ -22,7 +22,7 @@ export interface TranscriptMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
-  language?: string;
+  language?: Language;
   intent?: string;
   emotion?: string;
   score?: number;
@@ -62,6 +62,16 @@ export interface PreviousConversationContext {
   nextAction?: string;
 }
 
+export interface CallRecordLeadProfile {
+  lead_id: string;
+  phone: string;
+  name?: string;
+  language?: Language;
+  occupation?: string;
+  background?: string;
+  callScript?: string;
+}
+
 function getSummaryObject(summary: unknown): Record<string, unknown> {
   return summary && typeof summary === 'object' && !Array.isArray(summary)
     ? summary as Record<string, unknown>
@@ -82,49 +92,15 @@ export async function createCallRecord(
   conversationId: string,
   language: string = 'hinglish',
   leadProfile?: LeadProfile
-): Promise<{ callId: string; leadId: string }> {
+): Promise<{ callId: string; leadId: string; leadProfile: CallRecordLeadProfile }> {
   try {
-    const phone = leadProfile?.phone?.trim();
     const requestedLeadId = leadProfile?.lead_id || leadId;
 
-    // Resolve to one canonical lead before creating the call. This prevents
-    // duplicate temp leads when the voice client sends only a profile/phone.
-    let lead = await prisma.lead.findUnique({ where: { id: requestedLeadId } });
-
-    if (!lead && phone) {
-      lead = await prisma.lead.upsert({
-        where: { phone },
-        update: {
-          name: leadProfile?.name,
-          language,
-          occupation: leadProfile?.occupation,
-          background: leadProfile?.background,
-          callScript: leadProfile?.callScript,
-        },
-        create: {
-          id: requestedLeadId,
-          phone,
-          name: leadProfile?.name,
-          language,
-          occupation: leadProfile?.occupation,
-          background: leadProfile?.background,
-          callScript: leadProfile?.callScript,
-        },
-      });
-    }
-
+    // Test pipeline calls must attach to an existing RM dashboard lead.
+    // Leads are created from the dashboard; this path only creates call records.
+    const lead = await prisma.lead.findUnique({ where: { id: requestedLeadId } });
     if (!lead) {
-      lead = await prisma.lead.create({
-        data: {
-          id: requestedLeadId,
-          phone: `temp_${requestedLeadId}`,
-          name: leadProfile?.name,
-          language,
-          occupation: leadProfile?.occupation,
-          background: leadProfile?.background,
-          callScript: leadProfile?.callScript,
-        },
-      });
+      throw new Error(`Lead not found: ${requestedLeadId}. Create the lead from the RM dashboard first.`);
     }
 
     // Create call record
@@ -139,11 +115,31 @@ export async function createCallRecord(
     });
 
     console.log('[Storage] Created call record:', call.id);
-    return { callId: call.id, leadId: lead.id };
+    return {
+      callId: call.id,
+      leadId: lead.id,
+      leadProfile: {
+        lead_id: lead.id,
+        phone: lead.phone,
+        name: lead.name || undefined,
+        language: isSupportedLanguage(lead.language) ? lead.language : asSupportedLanguage(language),
+        occupation: lead.occupation || undefined,
+        background: lead.background || undefined,
+        callScript: lead.callScript || undefined,
+      },
+    };
   } catch (error) {
     console.error('[Storage] Error creating call record:', error);
     throw error;
   }
+}
+
+function isSupportedLanguage(value: string | null | undefined): value is Language {
+  return value === 'hindi' || value === 'hinglish' || value === 'english';
+}
+
+function asSupportedLanguage(value: string): Language {
+  return isSupportedLanguage(value) ? value : 'hinglish';
 }
 
 /**

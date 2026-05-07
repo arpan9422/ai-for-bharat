@@ -3,9 +3,9 @@
 * { box-sizing: border-box; }
 
 body {
-  background-color: #F9FAFB;
+  background-color: #F5F7FA;
   color: #111827;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 

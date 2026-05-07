@@ -10,13 +10,22 @@ import AddLeadModal from '@/components/AddLeadModal';
 import BulkUploadModal from '@/components/BulkUploadModal';
 import { formatDuration, formatShortDate, languageLabel, scoreColor } from '@/lib/utils';
 
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
+function StatCard({ label, value, sub, color, icon }: {
+  label: string; value: string | number; sub?: string; color: string; icon: string;
+}) {
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 shadow-sm border-l-4 ${color}`}>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
-        <p className="text-3xl font-bold text-gray-900 mt-1 leading-none">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-1.5">{sub}</p>}
+    <div className={`bg-white rounded-xl border border-gray-200 p-5 shadow-sm border-l-4 ${color}`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{label}</p>
+          <p className="text-3xl font-bold text-gray-900 mt-1 leading-none">{value}</p>
+          {sub && <p className="text-xs text-gray-400 mt-1.5">{sub}</p>}
+        </div>
+        <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center shrink-0">
+          <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
+          </svg>
+        </div>
       </div>
     </div>
   );
@@ -46,10 +55,11 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    void Promise.resolve().then(() => load());
+  }, [load]);
 
   const total = analytics ? analytics.leadCounts.HOT + analytics.leadCounts.WARM + analytics.leadCounts.COLD : 0;
-  const conversionRate = total > 0 ? Math.round((analytics!.leadCounts.HOT / total) * 100) : 0;
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
@@ -66,35 +76,45 @@ export default function DashboardPage() {
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowBulk(true)}
-              className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-600 bg-white px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors font-medium">
-              📤 Bulk Upload
+              className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-600 bg-white px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors font-medium">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+              Bulk Upload
             </button>
             <button onClick={() => setShowAdd(true)}
-              className="flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-semibold shadow-sm">
-              + Add Lead
+              className="inline-flex items-center gap-1.5 text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-semibold shadow-sm">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Lead
             </button>
           </div>
         </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm flex items-center gap-2">
-            ⚠️ {error}
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {error}
             <button onClick={load} className="ml-auto text-red-600 underline text-xs">Retry</button>
           </div>
         )}
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard label="Total Leads" color="border-indigo-500"
+            icon="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
             value={loading ? '—' : total} sub="All time" />
           <StatCard label="Hot Leads" color="border-red-500"
+            icon="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"
             value={loading ? '—' : analytics?.leadCounts.HOT ?? 0}
             sub={`Avg score: ${analytics?.avgScoreByStatus?.HOT ?? 0}`} />
           <StatCard label="Total Calls" color="border-emerald-500"
+            icon="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
             value={loading ? '—' : analytics?.calls.totalCalls ?? 0}
             sub={`Avg: ${formatDuration(analytics?.calls.avgDuration?.duration ?? undefined)}`} />
-          <StatCard label="Conversion Rate" color="border-amber-500"
-            value={loading ? '—' : `${conversionRate}%`} sub="Hot / Total leads" />
         </div>
 
         {/* Middle row */}
@@ -103,7 +123,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-semibold text-gray-700">Conversion Funnel</h2>
-              <Link href="/leads" className="text-xs text-indigo-600 hover:underline">View all →</Link>
+              <Link href="/leads" className="text-xs text-indigo-600 hover:underline font-medium">View all</Link>
             </div>
             {loading ? (
               <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />)}</div>
@@ -122,19 +142,19 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Recent calls with View buttons */}
+          {/* Recent calls */}
           <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <h2 className="text-sm font-semibold text-gray-700">Recent Calls</h2>
-              <Link href="/leads" className="text-xs text-indigo-600 hover:underline font-medium">View all →</Link>
+              <Link href="/leads" className="text-xs text-indigo-600 hover:underline font-medium">View all</Link>
             </div>
             {loading ? (
               <div className="p-4 space-y-2">{[1,2,3,4].map(i => <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />)}</div>
-            ) : analytics?.calls.recentCalls.length === 0 ? (
+            ) : !analytics?.calls.recentCalls.length ? (
               <div className="text-center py-10 text-gray-400 text-sm">No calls yet</div>
             ) : (
               <div className="divide-y divide-gray-50">
-                {(analytics?.calls.recentCalls ?? []).map(call => (
+                {analytics.calls.recentCalls.map(call => (
                   <div key={call.id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
                     <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600 shrink-0">
                       {(call.lead.name || call.lead.phone).charAt(0).toUpperCase()}
@@ -152,8 +172,10 @@ export default function DashboardPage() {
                       <span className={`text-base font-bold ${scoreColor(call.score)}`}>{call.score}</span>
                       <p className="text-xs text-gray-400">score</p>
                     </div>
-                    <Link href="/leads" className="text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0">
-                      View →
+                    <Link href="/leads"
+                      className="inline-flex items-center gap-1 text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg font-medium transition-colors shrink-0">
+                      View
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </Link>
                   </div>
                 ))}
@@ -162,21 +184,26 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Hot leads queue with View buttons */}
+        {/* Hot leads queue */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <span>🔥</span>
+              <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+              </svg>
               <h2 className="text-sm font-semibold text-gray-700">Hot Lead Queue</h2>
               <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">{hotLeads.length} ready</span>
             </div>
-            <Link href="/leads?status=HOT" className="text-xs text-indigo-600 hover:underline font-medium">View all →</Link>
+            <Link href="/leads?status=HOT" className="text-xs text-indigo-600 hover:underline font-medium">View all</Link>
           </div>
 
           {loading ? (
             <div className="p-4 space-y-2">{[1,2,3].map(i => <div key={i} className="h-14 bg-gray-100 rounded animate-pulse" />)}</div>
           ) : hotLeads.length === 0 ? (
             <div className="text-center py-10 text-gray-400">
+              <svg className="w-10 h-10 mx-auto mb-2 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
               <p className="text-sm">No hot leads yet — AI agent will populate this automatically</p>
             </div>
           ) : (
@@ -195,13 +222,12 @@ export default function DashboardPage() {
                       {lead.occupation || 'Unknown'} · {lead.language || '—'} · {lead._count?.calls ?? 0} call(s)
                     </div>
                   </div>
-                  <div className="w-24 shrink-0">
-                    <ScoreBar score={lead.score} />
-                  </div>
+                  <div className="w-24 shrink-0"><ScoreBar score={lead.score} /></div>
                   <div className={`text-lg font-bold shrink-0 w-8 text-right ${scoreColor(lead.score)}`}>{lead.score}</div>
                   <Link href={`/leads/${lead.id}`}
-                    className="text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 shadow-sm">
-                    View Lead →
+                    className="inline-flex items-center gap-1.5 text-xs text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg font-semibold transition-colors shrink-0 shadow-sm">
+                    View Lead
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                   </Link>
                 </div>
               ))}
