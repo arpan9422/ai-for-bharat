@@ -394,16 +394,19 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
       // ── Compute score ──
       const newSignal = {
-        enthusiasm:
+        enthusiasm: prepResult.enthusiasm ?? (
           prepResult.intent === 'positive_interest' ? 8 :
           prepResult.emotion === 'positive' ? 6 :
+          prepResult.requested_details_on_whatsapp ? 6 :
           prepResult.intent === 'information_request' ? 5 :
-          prepResult.emotion === 'negative' ? 1 : 3,
-        asked_followup: prepResult.intent === 'information_request',
-        positive_affirmation: prepResult.emotion === 'positive',
+          prepResult.emotion === 'negative' ? 1 : 3
+        ),
+        asked_followup: Boolean(prepResult.asked_followup || prepResult.intent === 'information_request' || prepResult.requested_details_on_whatsapp),
+        positive_affirmation: Boolean(prepResult.positive_affirmation || prepResult.emotion === 'positive'),
         objection_raised: prepResult.is_objection,
         objection_resolved: prepResult.is_objection && prepResult.call_stage !== 'objection_handling',
-        stated_intent: prepResult.intent === 'positive_interest',
+        stated_intent: Boolean(prepResult.stated_intent || prepResult.intent === 'positive_interest'),
+        requested_details_on_whatsapp: Boolean(prepResult.requested_details_on_whatsapp),
       };
       const turnSignals = [...(session.conversationState.turn_signals || []), newSignal];
       const scoreBreakdown = computeScore({

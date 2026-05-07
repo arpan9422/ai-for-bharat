@@ -63,6 +63,8 @@ export interface DetectionResult {
   positive_affirmation: boolean;
   /** Lead asked a follow-up question about the program */
   asked_followup: boolean;
+  /** Lead asked to receive program details on WhatsApp */
+  requested_details_on_whatsapp: boolean;
   /** Enthusiasm 0–10 */
   enthusiasm: number;
 }
@@ -112,6 +114,7 @@ function sanitizeDetection(parsed: Partial<DetectionResult>): DetectionResult {
     stated_intent: Boolean(parsed.stated_intent),
     positive_affirmation: Boolean(parsed.positive_affirmation),
     asked_followup: Boolean(parsed.asked_followup),
+    requested_details_on_whatsapp: Boolean(parsed.requested_details_on_whatsapp),
     enthusiasm: Math.min(Math.max(Number(parsed.enthusiasm) || 0, 0), 10),
   };
 }
@@ -271,11 +274,14 @@ Classify the lead's latest message. Return ONLY valid JSON, no markdown, no expl
   "stated_intent": <true|false>,
   "positive_affirmation": <true|false>,
   "asked_followup": <true|false>,
+  "requested_details_on_whatsapp": <true|false>,
   "enthusiasm": <0-10>
 }
 
 Rules:
-- stated_intent = true if lead asks for sign-up link, asks how to join, or says they want to proceed
+- stated_intent = true if lead asks for sign-up link, asks how to join, says they want to proceed, or shows strong buying interest like "very interested"
+- requested_details_on_whatsapp = true if lead asks to send details, brochure, program info, or next steps on WhatsApp
+- If lead only asks for details on WhatsApp, keep stated_intent=false unless they also say they want to join/proceed
 - positive_affirmation = true if lead says yes/haan/bilkul/sounds good/interesting/acha
 - asked_followup = true if lead asks a question about the program (payout, process, earnings, etc.)
 - already_with_broker: lead mentions existing broker relationship
@@ -315,6 +321,7 @@ Rules:
       stated_intent: Boolean(parsed.stated_intent),
       positive_affirmation: Boolean(parsed.positive_affirmation),
       asked_followup: Boolean(parsed.asked_followup),
+      requested_details_on_whatsapp: Boolean(parsed.requested_details_on_whatsapp),
       enthusiasm: Math.min(Math.max(Number(parsed.enthusiasm) || 0, 0), 10),
     };
   } catch (err) {
@@ -369,7 +376,8 @@ export function fallbackClassify(userInput: string): DetectionResult {
   if (
     t.includes('yes') || t.includes('haan') || t.includes('bilkul') ||
     t.includes('interested') || t.includes('great') || t.includes('acha') ||
-    t.includes('wah') || t.includes('really') || t.includes('tell me more')
+    t.includes('wah') || t.includes('really') || t.includes('tell me more') ||
+    t.includes('very interested') || t.includes('bahut interested')
   ) {
     emotion = 'positive';
   } else if (
@@ -385,9 +393,20 @@ export function fallbackClassify(userInput: string): DetectionResult {
   }
 
   // Intent signals
+  const requested_details_on_whatsapp =
+    (t.includes('whatsapp') || t.includes('whats app') || t.includes('watsapp')) &&
+    (
+      t.includes('detail') || t.includes('details') || t.includes('brochure') ||
+      t.includes('info') || t.includes('information') || t.includes('send') ||
+      t.includes('bhejo') || t.includes('bhej do') || t.includes('share') ||
+      t.includes('forward') || t.includes('process') || t.includes('link')
+    );
+
   const stated_intent =
     t.includes('join') || t.includes('sign up') || t.includes('link bhejo') ||
-    t.includes('kaise kare') || t.includes('how to start') || t.includes('register');
+    t.includes('kaise kare') || t.includes('how to start') || t.includes('register') ||
+    t.includes('proceed') || t.includes('start karna') ||
+    t.includes('very interested') || t.includes('bahut interested');
 
   const positive_affirmation =
     t.includes('haan') || t.includes('yes') || t.includes('bilkul') ||
@@ -397,11 +416,14 @@ export function fallbackClassify(userInput: string): DetectionResult {
     t.includes('kitna') || t.includes('how much') || t.includes('kab') ||
     t.includes('when') || t.includes('kaise') || t.includes('how') ||
     t.includes('kya process') || t.includes('what is the process') ||
+    requested_details_on_whatsapp ||
     (t.includes('?') && !is_objection);
 
   const enthusiasm =
+    stated_intent && requested_details_on_whatsapp ? 9 :
     stated_intent ? 8 :
     positive_affirmation ? 6 :
+    requested_details_on_whatsapp ? 6 :
     asked_followup ? 5 :
     emotion === 'negative' ? 1 :
     emotion === 'confused' ? 2 : 3;
@@ -414,7 +436,7 @@ export function fallbackClassify(userInput: string): DetectionResult {
 
   return {
     objection, is_objection, emotion, intent,
-    stated_intent, positive_affirmation, asked_followup, enthusiasm,
+    stated_intent, positive_affirmation, asked_followup, requested_details_on_whatsapp, enthusiasm,
   };
 }
 
@@ -441,6 +463,7 @@ export async function runDecisionEngine(
     emotion: detection.emotion,
     intent: detection.intent,
     stated_intent: detection.stated_intent,
+    requested_details_on_whatsapp: detection.requested_details_on_whatsapp,
     enthusiasm: detection.enthusiasm,
     next_stage: transition.next_stage,
     should_handoff: transition.should_handoff,

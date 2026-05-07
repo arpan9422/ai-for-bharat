@@ -37,6 +37,11 @@ const ConversationStateAnnotation = Annotation.Root({
   stage: Annotation<'opening' | 'conversation' | 'objection' | 'closing' | 'ended'>,
   intent: Annotation<string | undefined>,
   emotion: Annotation<'positive' | 'neutral' | 'negative' | 'confused' | undefined>,
+  positive_affirmation: Annotation<boolean>,
+  asked_followup: Annotation<boolean>,
+  requested_details_on_whatsapp: Annotation<boolean>,
+  stated_intent: Annotation<boolean>,
+  enthusiasm: Annotation<number>,
   is_objection: Annotation<boolean>,
   active_objection: Annotation<ObjectionType>,
   objections_raised: Annotation<ObjectionType[]>,
@@ -271,6 +276,11 @@ async function parallelPrepareNode(state: ConversationState): Promise<Partial<Co
     detected_language,
     intent: decisionResult.intent,
     emotion: decisionResult.emotion,
+    positive_affirmation: decisionResult.positive_affirmation,
+    asked_followup: decisionResult.asked_followup,
+    requested_details_on_whatsapp: decisionResult.requested_details_on_whatsapp,
+    stated_intent: decisionResult.stated_intent,
+    enthusiasm: decisionResult.enthusiasm,
     is_objection: decisionResult.is_objection,
     active_objection: decisionResult.objection,
     objections_raised,
@@ -399,17 +409,20 @@ async function guardrailsScoringNode(state: ConversationState): Promise<Partial<
 
   // ── Scoring (derived from DecisionEngine, no LLM) ──
   const newSignal: TurnSignals = {
-    enthusiasm:
+    enthusiasm: state.enthusiasm ?? (
       state.intent === 'positive_interest' ? 8 :
       state.emotion === 'positive' ? 6 :
+      state.requested_details_on_whatsapp ? 6 :
       state.intent === 'information_request' ? 5 :
       state.emotion === 'negative' ? 1 :
-      state.emotion === 'confused' ? 2 : 3,
-    asked_followup: state.intent === 'information_request',
-    positive_affirmation: state.emotion === 'positive',
+      state.emotion === 'confused' ? 2 : 3
+    ),
+    asked_followup: Boolean(state.asked_followup || state.intent === 'information_request' || state.requested_details_on_whatsapp),
+    positive_affirmation: Boolean(state.positive_affirmation || state.emotion === 'positive'),
     objection_raised: state.is_objection,
     objection_resolved: state.is_objection && state.call_stage !== 'objection_handling' && state.objections_raised.length > 0,
-    stated_intent: state.intent === 'positive_interest',
+    stated_intent: Boolean(state.stated_intent || state.intent === 'positive_interest'),
+    requested_details_on_whatsapp: Boolean(state.requested_details_on_whatsapp),
   };
 
   const turn_signals: TurnSignals[] = [...(state.turn_signals || []), newSignal];
@@ -560,6 +573,11 @@ export function createConversationState(
     stage: 'opening',
     intent: undefined,
     emotion: undefined,
+    positive_affirmation: false,
+    asked_followup: false,
+    requested_details_on_whatsapp: false,
+    stated_intent: false,
+    enthusiasm: 0,
     is_objection: false,
     active_objection: 'none' as ObjectionType,
     objections_raised: [],

@@ -31,6 +31,8 @@ export type TurnSignals = {
   objection_resolved: boolean;
   /** Did the lead explicitly express sign-up interest / ask for a link / ask how to start? */
   stated_intent: boolean;
+  /** Did the lead ask to receive program details on WhatsApp? */
+  requested_details_on_whatsapp?: boolean;
 };
 
 /** Aggregated signals across the full conversation */
@@ -104,10 +106,17 @@ function scoreObjectionPattern(turns: TurnSignals[]): number {
 /** Stated Intent – max 25 pts */
 function scoreStatedIntent(turns: TurnSignals[]): number {
   const intentCount = turns.filter((t) => t.stated_intent).length;
+  const whatsappDetailsCount = turns.filter((t) => t.requested_details_on_whatsapp).length;
 
-  if (intentCount === 0) return 0;
+  if (intentCount === 0) {
+    // Asking for details on WhatsApp is a buying signal, but not as strong as
+    // asking for the joining link or clearly saying they want to proceed.
+    if (whatsappDetailsCount === 0) return 0;
+    return Math.min(15 + (whatsappDetailsCount - 1) * 2.5, 20);
+  }
   // First signal of intent → 20 pts; each additional → +2.5 pts, capped at 25
-  return Math.min(20 + (intentCount - 1) * 2.5, 25);
+  if (whatsappDetailsCount > 0) return 25;
+  return Math.min(20 + (intentCount - 1) * 2.5 + Math.min(whatsappDetailsCount, 2) * 2.5, 25);
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
