@@ -487,8 +487,14 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
       // End of conversation — only if explicitly triggered by scoring logic
       if (!session.conversationState.should_continue && session.conversationState.end_reason) {
         if (!session) return;
+        flushPendingUserAudioTurn(session);
         const summary = await finalizeCallRecord(session.conversation_id, session.conversationState, session.recordingStartTime);
         await updateLeadFromConversation(session.lead_id, session.conversationState, summary);
+        const uploadedConversationChunks = await uploadConversationAudioChunks(session);
+        if (!uploadedConversationChunks && session.audioChunks.length > 0) {
+          const fullRecording = Buffer.concat(session.audioChunks);
+          await uploadCallAudio(session.conversation_id, fullRecording, 'audio/webm');
+        }
         send({ type: 'CALL_ENDING', payload: { reason: session.conversationState.end_reason, score: session.conversationState.score } });
       }
 
