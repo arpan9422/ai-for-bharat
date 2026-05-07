@@ -114,12 +114,12 @@ async function openingNode(state: ConversationState): Promise<Partial<Conversati
         : `Hi, this is Priya from Rupeezy. We spoke on ${previous.date}${keyPoint ? ` about ${keyPoint}` : ''}. Is this a good time to continue from there?`;
     } else if (lang === 'hindi') {
       greeting = name
-        ? `Namaste ${name} ji, main Priya Rupeezy se bol rahi hoon. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}${intent ? `, aur aapne kaha tha "${intent}"` : ''}. Kya abhi wahi baat aage badha sakte hain?`
-        : `Namaste, main Priya Rupeezy se bol rahi hoon. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}. Kya abhi wahi baat aage badha sakte hain?`;
+        ? `नमस्ते ${name} जी, मैं Priya Rupeezy से बोल रही हूँ। ${previous.date} को हमारी बात हुई थी${keyPoint ? ` ${keyPoint} के बारे में` : ''}${intent ? `, और आपने कहा था "${intent}"` : ''}। क्या अभी वही बात आगे बढ़ा सकते हैं?`
+        : `नमस्ते, मैं Priya Rupeezy से बोल रही हूँ। ${previous.date} को हमारी बात हुई थी${keyPoint ? ` ${keyPoint} के बारे में` : ''}। क्या अभी वही बात आगे बढ़ा सकते हैं?`;
     } else {
       greeting = name
-        ? `Namaste ${name} ji, main Priya Rupeezy se. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}${intent ? `, aur aapne bola tha "${intent}"` : ''}. Kya abhi usi discussion ko continue kar sakte hain?`
-        : `Namaste, main Priya Rupeezy se. ${previous.date} ko humari baat hui thi${keyPoint ? ` ${keyPoint} ke baare mein` : ''}. Kya abhi usi discussion ko continue kar sakte hain?`;
+        ? `नमस्ते ${name} जी, मैं Priya Rupeezy से। ${previous.date} को हमारी बात हुई थी${keyPoint ? ` ${keyPoint} के बारे में` : ''}${intent ? `, और आपने बोला था "${intent}"` : ''}। क्या अभी उसी discussion को continue कर सकते हैं?`
+        : `नमस्ते, मैं Priya Rupeezy से। ${previous.date} को हमारी बात हुई थी${keyPoint ? ` ${keyPoint} के बारे में` : ''}। क्या अभी उसी discussion को continue कर सकते हैं?`;
     }
   } else if (lang === 'english') {
     greeting = name
@@ -143,6 +143,28 @@ async function openingNode(state: ConversationState): Promise<Partial<Conversati
       greeting = name
         ? `Namaste ${name} ji! Main Priya bol rahi hoon Rupeezy ki taraf se. Kya abhi 2 minute baat ho sakti hai?`
         : `Namaste! Main Priya bol rahi hoon Rupeezy ki taraf se. Kya abhi 2 minute baat ho sakti hai?`;
+    }
+  }
+
+  if (!previous && lang === 'hindi') {
+    greeting = name
+      ? `नमस्ते ${name} जी! मैं Priya Rupeezy से बोल रही हूँ। क्या अभी 2 minute बात हो सकती है?`
+      : `नमस्ते! मैं Priya Rupeezy से बोल रही हूँ। क्या अभी 2 minute बात हो सकती है?`;
+  }
+
+  if (!previous && lang !== 'english' && lang !== 'hindi') {
+    if (occupation.includes('mfd') || occupation.includes('distributor')) {
+      greeting = name
+        ? `नमस्ते ${name} जी! मैं Priya Rupeezy से बोल रही हूँ। आप distribution में हैं, क्या अभी 2 minute बात हो सकती है?`
+        : `नमस्ते! मैं Priya Rupeezy से बोल रही हूँ। क्या अभी 2 minute बात हो सकती है?`;
+    } else if (occupation.includes('insurance')) {
+      greeting = name
+        ? `नमस्ते ${name} जी! मैं Priya हूँ, Rupeezy से। आप insurance में हैं, क्या अभी थोड़ी बात हो सकती है?`
+        : `नमस्ते! मैं Priya हूँ, Rupeezy से। क्या अभी थोड़ी बात हो सकती है?`;
+    } else {
+      greeting = name
+        ? `नमस्ते ${name} जी! मैं Priya Rupeezy की तरफ से बोल रही हूँ। क्या अभी 2 minute बात हो सकती है?`
+        : `नमस्ते! मैं Priya Rupeezy की तरफ से बोल रही हूँ। क्या अभी 2 minute बात हो सकती है?`;
     }
   }
 
@@ -458,7 +480,13 @@ async function ttsNode(state: ConversationState): Promise<Partial<ConversationSt
 
     async function* textStream() { yield state.response; }
 
-    for await (const chunk of streamSentences(textStream(), ttsLang)) {
+    for await (const chunk of streamSentences(textStream(), ttsLang, {
+      stage: state.call_stage,
+      emotion: state.emotion,
+      isObjection: state.is_objection,
+      intent: state.intent,
+      score: state.score,
+    })) {
       audioChunks.push(chunk);
     }
 

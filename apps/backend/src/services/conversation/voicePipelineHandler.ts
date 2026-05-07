@@ -349,7 +349,13 @@ export function setupVoicePipelineConnection(ws: WebSocket) {
 
       try {
         const ttsLang = detectTTSLanguage(fullResponse, preferredLang);
-        const audioBuffer = await synthesizeSpeechBuffer(fullResponse, ttsLang);
+        const audioBuffer = await synthesizeSpeechBuffer(fullResponse, ttsLang, {
+          stage: prepResult.call_stage,
+          emotion: prepResult.emotion,
+          isObjection: prepResult.is_objection,
+          intent: prepResult.intent,
+          score: prepResult.score,
+        });
         if (audioBuffer && audioBuffer.length > 0) {
           send({ type: 'AUDIO_PLAY', payload: audioBuffer.toString('base64') });
           audioChunkCount++;

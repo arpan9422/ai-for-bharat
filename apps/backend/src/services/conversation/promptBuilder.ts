@@ -47,6 +47,14 @@ const LANGUAGE_INSTRUCTIONS: Record<string, string> = {
   english:  `Reply in conversational Indian English. Warm, professional, short sentences.`,
 };
 
+const TTS_STYLE_RULES = `TTS STYLE:
+- Keep sentences short and conversational.
+- Use commas for short pauses and full stops for sentence endings.
+- If a sentence ends in Hindi, end with "।"; if it ends in English, end with ".".
+- For Hindi/Hinglish speech, write Hindi words in Devanagari and keep business terms in English.
+- Use fillers sparingly: "हmm", "हाँ", "actually", "basically" only when natural.
+- Keep brand/product words in English: Rupeezy, RISE Portal, WhatsApp, brokerage, payout.`;
+
 export interface PromptContext {
   stage: CallStage;
   language: 'hindi' | 'hinglish' | 'english';
@@ -75,6 +83,7 @@ export function buildPrompt(ctx: PromptContext): string {
 
   // Language
   parts.push(`LANGUAGE: ${LANGUAGE_INSTRUCTIONS[ctx.language] || LANGUAGE_INSTRUCTIONS.hinglish}`);
+  parts.push(TTS_STYLE_RULES);
 
   // Stage
   parts.push(`STAGE [${ctx.stage.toUpperCase()}]:\n${STAGE_INSTRUCTIONS[ctx.stage] || STAGE_INSTRUCTIONS.pitch}`);
